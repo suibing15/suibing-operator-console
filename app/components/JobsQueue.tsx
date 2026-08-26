@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { StatusBadge, ReasonModal, ReviewStatus } from "@/lib/reviewUi";
+import { StatusBadge, ReasonModal, Toast, ReviewStatus } from "@/lib/reviewUi";
 
 type Applicant = {
   id: string;
@@ -39,6 +39,7 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
   const [selected, setSelected] = useState<Applicant | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<"reject" | "correct" | null>(null);
+  const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("job_applicants").select("*").order("created_at", { ascending: false });
@@ -54,28 +55,33 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
     setBusy(true);
     const { error } = await supabase.rpc("approve_job_application", { p_id: a.id, p_by: operatorEmail });
     setBusy(false);
-    if (error) { alert(error.message); return; }
+    if (error) { setToast({ kind: "error", message: "Could not approve: " + error.message }); return; }
     setSelected(null);
+    setToast({ kind: "success", message: `${a.full_name} approved` });
     load();
   }
 
   async function reject(reason: string) {
     if (!selected) return;
+    const name = selected.full_name;
     setBusy(true);
     const { error } = await supabase.rpc("reject_job_application", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
-    if (error) { alert("Could not reject: " + error.message); return; }
+    if (error) { setToast({ kind: "error", message: "Could not reject: " + error.message }); return; }
     setModal(null); setSelected(null);
+    setToast({ kind: "success", message: `${name} rejected` });
     load();
   }
 
   async function requestCorrection(reason: string) {
     if (!selected) return;
+    const name = selected.full_name;
     setBusy(true);
     const { error } = await supabase.rpc("request_job_correction", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
-    if (error) { alert("Could not request correction: " + error.message); return; }
+    if (error) { setToast({ kind: "error", message: "Could not request correction: " + error.message }); return; }
     setModal(null); setSelected(null);
+    setToast({ kind: "success", message: `Correction requested from ${name}` });
     load();
   }
 
@@ -84,8 +90,9 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
     setBusy(true);
     const { error } = await supabase.rpc("delete_stale_job_application", { p_id: a.id, p_by: operatorEmail });
     setBusy(false);
-    if (error) { alert("Could not delete: " + error.message); return; }
+    if (error) { setToast({ kind: "error", message: "Could not delete: " + error.message }); return; }
     setSelected(null);
+    setToast({ kind: "success", message: `${a.full_name} deleted` });
     load();
   }
 
@@ -126,7 +133,7 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
         </table>
       </div>
 
-      {selected && (
+      {selected && !modal && (
         <ApplicantDrawer
           a={selected}
           busy={busy}
@@ -148,6 +155,8 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
         <ReasonModal title={`Request correction — "${selected.full_name}"`} actionLabel="Request correction" busy={busy}
           onCancel={() => setModal(null)} onSubmit={requestCorrection} />
       )}
+
+      {toast && <Toast kind={toast.kind} message={toast.message} onDone={() => setToast(null)} />}
 
       <style jsx>{`
         .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
