@@ -18,21 +18,21 @@ export default function Careers() {
       <div className="split">
         <aside className="panel">
           <div className="panelInner">
-            <div className="brandRow">
+            <div className="brandRow anim-1">
               <img src="/logo.png" alt="Suibing IT Services" className="logo" />
               <div>
                 <div className="brandName">SUIBING</div>
                 <div className="brandSub">IT Services</div>
               </div>
             </div>
-            <h1>Build software that reaches real classrooms.</h1>
-            <p className="tagline">We're a small, hands-on team building school management, examination, and records software used by real schools every day.</p>
-            <ul className="points">
+            <h1 className="anim-2">Build software that reaches real classrooms.</h1>
+            <p className="tagline anim-3">We're a small, hands-on team building school management, examination, and records software used by real schools every day.</p>
+            <ul className="points anim-4">
               <li><span className="dot" />Direct, close-knit team — no bureaucracy</li>
               <li><span className="dot" />Work on products already in daily production use</li>
               <li><span className="dot" />Based in Kano, Nigeria</li>
             </ul>
-            <div className="corpline">
+            <div className="corpline anim-5">
               SUIBING LIMITED (RC 9801555)<br />
               trading as Suibing IT Services
             </div>
@@ -43,7 +43,7 @@ export default function Careers() {
           {applyTo ? (
             <ApplyForm job={applyTo} onBack={() => setApplyTo(null)} />
           ) : (
-            <div className="formCard wide">
+            <div className="formCard wide anim-card">
               <h2>Open positions</h2>
               <p className="sub">Current opportunities at Suibing IT Services.</p>
 
@@ -57,8 +57,8 @@ export default function Careers() {
                 </div>
               ) : (
                 <div className="jobs">
-                  {jobs.map((j) => (
-                    <div key={j.id} className="job">
+                  {jobs.map((j, i) => (
+                    <div key={j.id} className="job jobAnim" style={{ animationDelay: `${0.1 + i * 0.08}s` }}>
                       <h3>{j.title}</h3>
                       {j.description && <p>{j.description}</p>}
                       <button className="btn" onClick={() => setApplyTo(j)}>Apply for this role</button>
@@ -69,7 +69,7 @@ export default function Careers() {
             </div>
           )}
 
-          <div className="links">
+          <div className="links anim-links">
             <a href="/careers/status">Already applied? Check status</a>
             <span className="dot2">·</span>
             <a href="/apply">Apply for school services</a>
@@ -154,8 +154,8 @@ const styles = `
   @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
 
   .panel { background: linear-gradient(160deg, var(--navy) 0%, #14213d 100%); color: #fff; display: flex; align-items: center; padding: 48px; position: relative; overflow: hidden; }
-  .panel::before { content: ""; position: absolute; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.04); top: -120px; right: -120px; }
-  .panel::after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; background: rgba(255,255,255,0.03); bottom: -100px; left: -80px; }
+  .panel::before { content: ""; position: absolute; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.04); top: -120px; right: -120px; animation: sbFloat 9s ease-in-out infinite; }
+  .panel::after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; background: rgba(255,255,255,0.03); bottom: -100px; left: -80px; animation: sbFloat 11s ease-in-out infinite reverse; }
   .panelInner { position: relative; max-width: 440px; margin: 0 auto; }
   .brandRow { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
   .logo { width: 44px; height: 44px; border-radius: 10px; }
@@ -168,38 +168,49 @@ const styles = `
   .points .dot { width: 6px; height: 6px; border-radius: 50%; background: #6DD3A8; margin-top: 7px; flex-shrink: 0; }
   .corpline { font-size: 11.5px; color: rgba(255,255,255,0.5); line-height: 1.6; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.12); }
 
+  .anim-1, .anim-2, .anim-3, .anim-4, .anim-5 { opacity: 0; animation: sbFadeUp 0.6s ease-out forwards; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.15s; }
+  .anim-3 { animation-delay: 0.25s; }
+  .anim-4 { animation-delay: 0.35s; }
+  .anim-5 { animation-delay: 0.45s; }
+
   .formSide { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; gap: 18px; }
-  .formCard { background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 4px 24px rgba(20,28,45,0.06); padding: 36px; width: 100%; max-width: 440px; position: relative; }
+  .formCard { background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 4px 24px rgba(20,28,45,0.06); padding: 36px; width: 100%; max-width: 440px; position: relative; transition: box-shadow 0.3s ease; }
+  .formCard:hover { box-shadow: 0 10px 36px rgba(20,28,45,0.1); }
   .formCard.wide { max-width: 520px; }
+  .anim-card { opacity: 0; animation: sbScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards; }
+  .anim-links { opacity: 0; animation: sbFadeIn 0.5s ease-out 0.5s forwards; }
   .back { background: none; border: none; color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 16px; padding: 0; }
   .back:hover { text-decoration: underline; }
   h2 { font-size: 21px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
   .sub { color: var(--muted); font-size: 13.5px; margin: 4px 0 22px; line-height: 1.5; }
   .muted { color: var(--muted); font-size: 14px; }
   .muted.small { font-size: 12.5px; }
-  .check { width: 44px; height: 44px; border-radius: 50%; background: var(--green-soft); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; margin-bottom: 14px; }
+  .check { width: 44px; height: 44px; border-radius: 50%; background: var(--green-soft); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; margin-bottom: 14px; animation: sbPulseRing 1.8s ease-out 0.4s 2; }
   .lead { font-size: 14px; color: var(--ink-2); margin-bottom: 18px; line-height: 1.5; }
-  .emptyState { text-align: center; padding: 30px 10px; }
+  .emptyState { text-align: center; padding: 30px 10px; animation: sbFadeIn 0.4s ease-out; }
   .emptyIcon { font-size: 32px; margin-bottom: 12px; }
   .emptyState p { font-size: 14px; color: var(--ink-2); margin-bottom: 4px; }
   .jobs { display: flex; flex-direction: column; gap: 12px; }
-  .job { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 18px; transition: border-color 0.15s; }
-  .job:hover { border-color: var(--navy); }
+  .job { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 18px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+  .jobAnim { opacity: 0; animation: sbFadeUp 0.45s ease-out forwards; }
+  .job:hover { border-color: var(--navy); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(20,28,45,0.08); }
   .job h3 { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
   .job p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 14px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 14px 0 6px; }
-  input, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 14px; font-family: inherit; background: #fff; }
+  input, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 14px; font-family: inherit; background: #fff; transition: border-color 0.15s, box-shadow 0.15s; }
   input:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
   textarea { resize: vertical; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .err { background: var(--red-soft); color: var(--red); padding: 10px 13px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+  .err { background: var(--red-soft); color: var(--red); padding: 10px 13px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; animation: sbFadeUp 0.25s ease-out; }
   .ticket { background: var(--navy-soft); border-radius: var(--radius-sm); padding: 18px; margin: 14px 0; }
   .tRow { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 14px; }
   .tRow span { color: var(--ink-2); }
   .tRow strong { color: var(--navy); font-size: 17px; letter-spacing: 0.02em; }
   .note { font-size: 12px; color: var(--muted); line-height: 1.5; }
   .links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: 13px; }
-  .links a { color: var(--navy); text-decoration: none; font-weight: 600; }
-  .links a:hover { text-decoration: underline; }
+  .links a { color: var(--navy); text-decoration: none; font-weight: 600; transition: color 0.15s; }
+  .links a:hover { text-decoration: underline; color: var(--navy-2); }
   .dot2 { color: var(--muted); }
 `;

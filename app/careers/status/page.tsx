@@ -202,8 +202,9 @@ function OfferDownload({ form, code }: { form: string; code: string }) {
 }
 
 const styles = `
-  .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
-  .box { padding: 34px; width: 100%; max-width: 440px; }
+  .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; background: var(--paper-2); }
+  .box { padding: 34px; width: 100%; max-width: 440px; opacity: 0; animation: sbScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: box-shadow 0.3s ease; box-shadow: 0 4px 24px rgba(20,28,45,0.06); }
+  .box:hover { box-shadow: 0 10px 36px rgba(20,28,45,0.1); }
   .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
   .logo { width: 34px; height: 34px; border-radius: 8px; }
   .brand span { font-weight: 400; }
@@ -214,8 +215,8 @@ const styles = `
   textarea { resize: vertical; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
-  .result { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 18px; }
-  .pill { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 12px; border-radius: 999px; margin-bottom: 12px; }
+  .result { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 18px; animation: sbFadeUp 0.4s ease-out; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 12px; border-radius: 999px; margin-bottom: 12px; animation: sbScaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
   .pill.amber { background: #FBF0DC; color: var(--amber); }
   .pill.red { background: var(--red-soft); color: var(--red); }
   .pill.green { background: var(--green-soft); color: var(--green); }
