@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import ProspectsQueue from "@/app/components/ProspectsQueue";
 import JobsQueue from "@/app/components/JobsQueue";
 import JobPostings from "@/app/components/JobPostings";
+import InstallButton from "@/app/components/InstallButton";
 
 type School = {
   id: string;
@@ -98,7 +99,7 @@ export default function Console() {
     <div className="shell">
       <header className="top">
         <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span> · Operator Console</div>
-        <div className="who">{email} <button className="link" onClick={signOut}>Sign out</button></div>
+        <div className="who"><InstallButton /> {email} <button className="link" onClick={signOut}>Sign out</button></div>
       </header>
 
       <div className="stats">
@@ -185,7 +186,7 @@ export default function Console() {
         .brand { font-size: 18px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 10px; }
         .logo { width: 30px; height: 30px; border-radius: 7px; }
         .brand span { font-weight: 400; }
-        .who { font-size: 13px; color: var(--muted); }
+        .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
         .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; margin-left: 8px; }
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -596,7 +597,7 @@ function ContractBox({ school }: { school: School }) {
       </div>
 
       {schedules.includes("bucket") && (
-        <div className="pay-row" style={{ marginTop: 12 }}>
+        <div className="fieldGrid" style={{ marginTop: 14 }}>
           <div>
             <label>Bucket subscription fee</label>
             <input value={subFee} onChange={(e) => setSubFee(e.target.value)} placeholder="e.g. NGN 10,000" />
@@ -608,27 +609,48 @@ function ContractBox({ school }: { school: School }) {
         </div>
       )}
 
-      <div className="two" style={{ marginTop: 12 }}>
-        <div><label>Contact person</label><input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} /></div>
-        <div><label>Contact email</label><input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></div>
+      <div className="fieldGrid" style={{ marginTop: 14 }}>
+        <div>
+          <label>Contact person</label>
+          <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder="Full name" />
+        </div>
+        <div>
+          <label>Contact email</label>
+          <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="you@example.com" />
+        </div>
       </div>
-      <label>Client address</label>
-      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="School address" />
-      <label>Effective date</label>
-      <input value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+
+      <div className="fieldGrid" style={{ marginTop: 10 }}>
+        <div>
+          <label>Client address</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="School address" />
+        </div>
+        <div>
+          <label>Effective date</label>
+          <input value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+        </div>
+      </div>
 
       {err && <div className="err">{err}</div>}
       {msg && <div className="msg">{msg}</div>}
 
-      <button className="btn ok" onClick={generate} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+      <button className="btn ok" onClick={generate} disabled={busy} style={{ width: "100%", marginTop: 14 }}>
         {busy ? "Generating…" : "Generate & download (.docx)"}
       </button>
 
       <style jsx>{`
+        .inv { padding: 18px; margin-bottom: 18px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 0 0 6px; }
+        input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
         .schedGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
-        .schedChk { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; }
+        .schedChk { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; cursor: pointer; margin: 0; }
         .schedChk input { width: auto; }
-        @media (max-width: 560px) { .schedGrid { grid-template-columns: 1fr; } }
+        .fieldGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+        .msg { margin-top: 12px; font-size: 13px; color: var(--green); line-height: 1.4; }
+        @media (max-width: 560px) { .schedGrid, .fieldGrid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );

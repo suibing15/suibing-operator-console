@@ -1,8 +1,9 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle,
-  PageBreak, Header, Footer, PageNumber, VerticalAlign,
+  PageBreak, Header, Footer, PageNumber, VerticalAlign, ImageRun,
 } from "docx";
+import { LOGO_PNG_BASE64 } from "./branding";
 
 const NAVY = "1F3864";
 const BLUE = "2E75B6";
@@ -76,6 +77,10 @@ function clause(num: string, text: string) {
 function pageBreak() {
   return new Paragraph({ children: [new PageBreak()] });
 }
+function logoBuffer(): Buffer {
+  const base64 = LOGO_PNG_BASE64.split(",")[1] ?? LOGO_PNG_BASE64;
+  return Buffer.from(base64, "base64");
+}
 function signBlock(roleTitle: string) {
   return [
     new Paragraph({ spacing: { before: 400, after: 40 }, children: [new TextRun({ text: "_".repeat(35), size: 22, font: FONT })] }),
@@ -92,7 +97,8 @@ function docHeader() {
       new Paragraph({
         tabStops: [{ type: "right", position: 10500 }],
         children: [
-          new TextRun({ text: "SUIBING IT SERVICES", bold: true, size: 16, color: NAVY, font: FONT }),
+          new ImageRun({ data: logoBuffer(), transformation: { width: 16, height: 16 }, type: "png" }),
+          new TextRun({ text: "  SUIBING IT SERVICES", bold: true, size: 16, color: NAVY, font: FONT }),
           new TextRun({ text: "\tService Agreement", size: 16, color: GREY, font: FONT }),
         ],
       }),
@@ -196,7 +202,9 @@ export async function generateContractDocx(req: ContractRequest): Promise<Buffer
         headers: { default: docHeader() },
         footers: { default: docFooter() },
         children: [
-          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 60 },
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 160 },
+            children: [new ImageRun({ data: logoBuffer(), transformation: { width: 72, height: 72 }, type: "png" })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 60 },
             children: [new TextRun({ text: "SUIBING LIMITED", bold: true, size: 36, color: NAVY, font: FONT })] }),
           new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 8 },
             children: [new TextRun({ text: "RC 9801555 · trading as Suibing IT Services", size: 20, color: GREY, font: FONT })] }),

@@ -69,23 +69,46 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   // @ts-ignore - jspdf-autotable augments doc with lastAutoTable
   y = (doc as any).lastAutoTable.finalY + 10;
 
+  const rowTop = y;
+
+  // Bank details box, left-aligned
+  const bankW = 84;
+  doc.setDrawColor(224, 228, 236);
+  doc.setFillColor(246, 248, 251);
+  doc.roundedRect(18, rowTop, bankW, 30, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...navy);
+  doc.text("Payment Details", 24, rowTop + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...ink2);
+  doc.text("Bank Name:", 24, rowTop + 14.5);
+  doc.text("OPay", 60, rowTop + 14.5);
+  doc.text("Account Name:", 24, rowTop + 19.5);
+  const nameLines = doc.splitTextToSize("Sulaiman Ibrahim Inuwa", 22);
+  doc.text(nameLines, 60, rowTop + 19.5);
+  doc.text("Account Number:", 24, rowTop + 25.5);
+  doc.text("7080195042", 60, rowTop + 25.5);
+
   // Totals box, right-aligned
   const boxW = 76;
   const boxX = W - 18 - boxW;
   doc.setDrawColor(224, 228, 236);
   doc.setFillColor(246, 248, 251);
-  doc.roundedRect(boxX, y, boxW, 20, 2, 2, "F");
+  doc.roundedRect(boxX, rowTop, boxW, 20, 2, 2, "F");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(...ink2);
-  doc.text("Subtotal", boxX + 6, y + 8);
-  doc.text(fmtMoney(d.subtotal, d.currency), boxX + boxW - 6, y + 8, { align: "right" });
+  doc.text("Subtotal", boxX + 6, rowTop + 8);
+  doc.text(fmtMoney(d.subtotal, d.currency), boxX + boxW - 6, rowTop + 8, { align: "right" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11.5);
   doc.setTextColor(...navy);
-  doc.text("Total", boxX + 6, y + 16);
-  doc.text(fmtMoney(d.total, d.currency), boxX + boxW - 6, y + 16, { align: "right" });
-  y += 30;
+  doc.text("Total", boxX + 6, rowTop + 16);
+  doc.text(fmtMoney(d.total, d.currency), boxX + boxW - 6, rowTop + 16, { align: "right" });
+
+  y = rowTop + 40;
 
   if (d.notes?.trim()) {
     doc.setFont("helvetica", "bold");
