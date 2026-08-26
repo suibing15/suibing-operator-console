@@ -40,8 +40,19 @@ export default function Login() {
           </>
         )}
       </div>
+      <div className="links">
+        <a href="/apply">Apply for a school service</a>
+        <span className="dot">·</span>
+        <a href="/apply/status">Check application status</a>
+        <span className="dot">·</span>
+        <a href="/careers">Careers</a>
+      </div>
       <style jsx>{`
-        .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
+        .links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: 13px; }
+        .links a { color: var(--navy); text-decoration: none; font-weight: 600; }
+        .links a:hover { text-decoration: underline; }
+        .links .dot { color: var(--muted); }
         .box { padding: 34px; width: 100%; max-width: 380px; }
         .brand { font-size: 26px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
         .brand span { font-weight: 400; }

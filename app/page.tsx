@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, isConfigured } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
+import ProspectsQueue from "@/app/components/ProspectsQueue";
+import JobsQueue from "@/app/components/JobsQueue";
+import JobPostings from "@/app/components/JobPostings";
 
 type School = {
   id: string;
@@ -41,6 +44,9 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings">("schools");
+  const [pendingProspects, setPendingProspects] = useState(0);
+  const [pendingApplicants, setPendingApplicants] = useState(0);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("schools").select("*").order("name");
@@ -50,6 +56,17 @@ export default function Console() {
   useEffect(() => {
     if (isOperator) load();
   }, [isOperator, load]);
+
+  useEffect(() => {
+    if (!isOperator) return;
+    async function loadCounts() {
+      const { count: pc } = await supabase.from("prospects").select("id", { count: "exact", head: true }).eq("status", "pending");
+      const { count: jc } = await supabase.from("job_applicants").select("id", { count: "exact", head: true }).eq("status", "pending");
+      setPendingProspects(pc ?? 0);
+      setPendingApplicants(jc ?? 0);
+    }
+    loadCounts();
+  }, [isOperator, tab]);
 
   if (loading) return <Center>Loading…</Center>;
   if (!isConfigured) return <Center>Console not configured. Set Supabase environment variables.</Center>;
@@ -91,45 +108,64 @@ export default function Console() {
         <Stat label="Total students" value={totalStudents.toLocaleString()} />
       </div>
 
-      <div className="bar">
-        <h2>Registered schools</h2>
-        <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
+      <div className="tabs">
+        <button className={tab === "schools" ? "tab on" : "tab"} onClick={() => setTab("schools")}>Schools</button>
+        <button className={tab === "prospects" ? "tab on" : "tab"} onClick={() => setTab("prospects")}>
+          Prospects{pendingProspects > 0 ? <span className="dot">{pendingProspects}</span> : null}
+        </button>
+        <button className={tab === "jobs" ? "tab on" : "tab"} onClick={() => setTab("jobs")}>
+          Job applicants{pendingApplicants > 0 ? <span className="dot">{pendingApplicants}</span> : null}
+        </button>
+        <button className={tab === "postings" ? "tab on" : "tab"} onClick={() => setTab("postings")}>Job postings</button>
       </div>
 
-      <div className="card table-wrap">
-        <table>
-          <thead>
-            <tr><th>School</th><th>Status</th><th className="r">Students</th><th className="r">Records</th><th>Paid until</th><th></th></tr>
-          </thead>
-          <tbody>
-            {schools.length === 0 ? (
-              <tr><td colSpan={6} className="empty">No schools yet. Click “Add school”.</td></tr>
-            ) : schools.map((s) => {
-              const od = s.paid_until && new Date(s.paid_until) < new Date();
-              return (
-                <tr key={s.id}>
-                  <td>
-                    <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
-                    <div className="key">{s.school_key}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${s.status}`}>{s.status}</span>
-                  </td>
-                  <td className="r tab-nums">{s.students_count}</td>
-                  <td className="r tab-nums">{s.records_count}</td>
-                  <td className={od ? "overdue" : ""}>{fmtDate(s.paid_until)}{od && " ⚠"}</td>
-                  <td className="r">
-                    <button className={`mini ${s.status === "active" ? "danger" : "ok"}`} onClick={() => toggleStatus(s)} disabled={busy}>
-                      {s.status === "active" ? "Disable" : "Enable"}
-                    </button>
-                    <button className="mini" onClick={() => setSelected(s)}>Manage</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {tab === "schools" && (
+        <>
+          <div className="bar">
+            <h2>Registered schools</h2>
+            <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
+          </div>
+
+          <div className="card table-wrap">
+            <table>
+              <thead>
+                <tr><th>School</th><th>Status</th><th className="r">Students</th><th className="r">Records</th><th>Paid until</th><th></th></tr>
+              </thead>
+              <tbody>
+                {schools.length === 0 ? (
+                  <tr><td colSpan={6} className="empty">No schools yet. Click “Add school”.</td></tr>
+                ) : schools.map((s) => {
+                  const od = s.paid_until && new Date(s.paid_until) < new Date();
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
+                        <div className="key">{s.school_key}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${s.status}`}>{s.status}</span>
+                      </td>
+                      <td className="r tab-nums">{s.students_count}</td>
+                      <td className="r tab-nums">{s.records_count}</td>
+                      <td className={od ? "overdue" : ""}>{fmtDate(s.paid_until)}{od && " ⚠"}</td>
+                      <td className="r">
+                        <button className={`mini ${s.status === "active" ? "danger" : "ok"}`} onClick={() => toggleStatus(s)} disabled={busy}>
+                          {s.status === "active" ? "Disable" : "Enable"}
+                        </button>
+                        <button className="mini" onClick={() => setSelected(s)}>Manage</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === "prospects" && email && <ProspectsQueue operatorEmail={email} />}
+      {tab === "jobs" && email && <JobsQueue operatorEmail={email} />}
+      {tab === "postings" && <JobPostings />}
 
       {selected && (
         <SchoolDrawer
@@ -152,6 +188,10 @@ export default function Console() {
         .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; margin-left: 8px; }
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+        .tab { position: relative; background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+        .tab.on { color: var(--navy); border-bottom-color: var(--navy); }
+        .tab .dot { background: var(--red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
         h2 { font-size: 18px; font-weight: 700; color: var(--ink); }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
