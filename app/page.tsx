@@ -362,6 +362,8 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
 
         <InvoiceBox school={school} operatorEmail={operatorEmail} onIssued={loadActivity} />
 
+        <ContractBox school={school} />
+
         <div className="act-head">
           <h4>Activity history</h4>
           <button className="btn ghost" onClick={generatePdf}>Generate PDF report</button>
@@ -451,17 +453,17 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
 
     const { generateInvoicePdf } = await import("@/lib/invoice");
     await generateInvoicePdf({
-      invoiceNumber: row.invoice_number,
+      invoiceNumber: row.out_invoice_number,
       schoolName: school.name,
       currency: "NGN",
       lineItems: cleanItems.map((c: any) => ({ description: c.description, qty: c.qty, unitPrice: c.unit_price })),
-      subtotal: row.total,
-      total: row.total,
+      subtotal: row.out_total,
+      total: row.out_total,
       notes,
       issuedAt: new Date().toISOString(),
     });
 
-    setMsg(`Invoice ${row.invoice_number} issued and downloaded. ${school.name} can also download it from their own invoice status page.`);
+    setMsg(`Invoice ${row.out_invoice_number} issued and downloaded. ${school.name} can also download it from their own invoice status page.`);
     setItems([{ description: "", qty: "1", unitPrice: "" }]);
     onIssued();
   }
@@ -517,6 +519,116 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
         .msg { margin-top: 10px; font-size: 13px; color: var(--green); line-height: 1.4; }
         @media (max-width: 560px) { .invRow { grid-template-columns: 1fr; } }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Contract generator ----------
+const SCHEDULE_OPTIONS: { key: string; label: string }[] = [
+  { key: "bucket", label: "SUIBING Bucket" },
+  { key: "ssms", label: "SSMS" },
+  { key: "e_examiner", label: "E-Examiner Contract" },
+  { key: "ledger", label: "SuibingLedger" },
+  { key: "custom", label: "Custom / Bespoke Development" },
+];
+
+function ContractBox({ school }: { school: School }) {
+  const [schedules, setSchedules] = useState<string[]>([]);
+  const [contactPerson, setContactPerson] = useState(school.contact_person ?? "");
+  const [contactEmail, setContactEmail] = useState(school.contact_email ?? "");
+  const [address, setAddress] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(() => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }));
+  const [subFee, setSubFee] = useState("");
+  const [subPeriod, setSubPeriod] = useState("3 months");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  function toggle(key: string) {
+    setSchedules((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  async function generate() {
+    setErr(null); setMsg(null);
+    if (schedules.length === 0) { setErr("Select at least one schedule to include."); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/generate-contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: school.name, clientAddress: address, contactPerson, contactEmail,
+          schedules, effectiveDate, subscriptionFee: subFee, subscriptionPeriod: subPeriod,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Service_Agreement_${school.name.replace(/\s+/g, "_")}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMsg("Contract generated and downloaded as a Word document.");
+    } catch (e: any) {
+      setErr(e?.message || "Could not generate contract.");
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="inv card">
+      <h4>Generate service agreement (Word)</h4>
+      <label>Schedules to include</label>
+      <div className="schedGrid">
+        {SCHEDULE_OPTIONS.map((s) => (
+          <label key={s.key} className="schedChk">
+            <input type="checkbox" checked={schedules.includes(s.key)} onChange={() => toggle(s.key)} />
+            {s.label}
+          </label>
+        ))}
+      </div>
+
+      {schedules.includes("bucket") && (
+        <div className="pay-row" style={{ marginTop: 12 }}>
+          <div>
+            <label>Bucket subscription fee</label>
+            <input value={subFee} onChange={(e) => setSubFee(e.target.value)} placeholder="e.g. NGN 10,000" />
+          </div>
+          <div>
+            <label>Per period</label>
+            <input value={subPeriod} onChange={(e) => setSubPeriod(e.target.value)} placeholder="e.g. 3 months" />
+          </div>
+        </div>
+      )}
+
+      <div className="two" style={{ marginTop: 12 }}>
+        <div><label>Contact person</label><input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} /></div>
+        <div><label>Contact email</label><input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></div>
+      </div>
+      <label>Client address</label>
+      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="School address" />
+      <label>Effective date</label>
+      <input value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+
+      {err && <div className="err">{err}</div>}
+      {msg && <div className="msg">{msg}</div>}
+
+      <button className="btn ok" onClick={generate} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+        {busy ? "Generating…" : "Generate & download (.docx)"}
+      </button>
+
+      <style jsx>{`
+        .schedGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+        .schedChk { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; }
+        .schedChk input { width: auto; }
+        @media (max-width: 560px) { .schedGrid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );
