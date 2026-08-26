@@ -174,7 +174,7 @@ function ProspectDrawer({ p, schools, busy, onClose, onApprove, onReject, onCorr
   const [linkExisting, setLinkExisting] = useState(p.existing_school_id ?? "");
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="drawer card" onClick={(e) => e.stopPropagation()}>
         <div className="dh">
           <div>

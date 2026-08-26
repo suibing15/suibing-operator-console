@@ -97,7 +97,7 @@ export default function Console() {
   return (
     <div className="shell">
       <header className="top">
-        <div className="brand">SUIBING <span>Bucket</span> · Operator Console</div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span> · Operator Console</div>
         <div className="who">{email} <button className="link" onClick={signOut}>Sign out</button></div>
       </header>
 
@@ -181,8 +181,9 @@ export default function Console() {
 
       <style jsx>{`
         .shell { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
-        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .brand { font-size: 18px; font-weight: 800; color: var(--navy); }
+        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+        .brand { font-size: 18px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 10px; }
+        .logo { width: 30px; height: 30px; border-radius: 7px; }
         .brand span { font-weight: 400; }
         .who { font-size: 13px; color: var(--muted); }
         .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; margin-left: 8px; }
@@ -318,7 +319,7 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="drawer" onClick={(e) => e.stopPropagation()}>
         <div className="dh">
           <div>
@@ -450,7 +451,7 @@ function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; 
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
         <div className="mh"><h3>Add school</h3><button className="x" onClick={onClose}>✕</button></div>
         <label>School key (short, unique, e.g. "assalam")</label>

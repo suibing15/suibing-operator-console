@@ -18,7 +18,7 @@ export default function Careers() {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Careers</p>
 
         {jobs === null ? (
@@ -72,7 +72,7 @@ function ApplyForm({ job, onBack }: { job: Job; onBack: () => void }) {
     return (
       <div className="wrap">
         <div className="card box">
-          <div className="brand">SUIBING <span>IT Services</span></div>
+          <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
           <h1>Application received</h1>
           <p className="lead">Save these details — you'll need both to check your status.</p>
           <div className="ticket">
@@ -92,7 +92,7 @@ function ApplyForm({ job, onBack }: { job: Job; onBack: () => void }) {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Applying for: {job.title}</p>
 
         <label>Full name</label>
@@ -119,7 +119,8 @@ function ApplyForm({ job, onBack }: { job: Job; onBack: () => void }) {
 const styles = `
   .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
   .box { padding: 34px; width: 100%; max-width: 460px; }
-  .brand { font-size: 24px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+  .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .logo { width: 34px; height: 34px; border-radius: 8px; }
   .brand span { font-weight: 400; }
   .sub { color: var(--muted); font-size: 13px; margin: 2px 0 20px; }
   h1 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 14px 0 6px; }

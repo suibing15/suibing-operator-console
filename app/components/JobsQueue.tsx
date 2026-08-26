@@ -15,6 +15,14 @@ type Applicant = {
   resume_url: string | null;
   reviewer_note: string | null;
   created_at: string;
+  offer_role: string | null;
+  offer_employment_type: string | null;
+  offer_start_date: string | null;
+  offer_salary: string | null;
+  offer_reporting_to: string | null;
+  offer_additional_terms: string | null;
+  offer_issued_by: string | null;
+  offer_issued_at: string | null;
 };
 
 const FILTERS: { key: ReviewStatus | "all"; label: string }[] = [
@@ -98,15 +106,20 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={6} className="empty">Nothing here.</td></tr>
+              <tr><td colSpan={6} className="empty">No applicants in this view.</td></tr>
             ) : visible.map((a) => (
-              <tr key={a.id}>
+              <tr key={a.id} onClick={() => setSelected(a)}>
                 <td className="mono">{a.form_number}</td>
-                <td><button className="name" onClick={() => setSelected(a)}>{a.full_name}</button></td>
+                <td>
+                  <div className="nameCell">
+                    <div className="avatarSm">{a.full_name.slice(0, 1).toUpperCase()}</div>
+                    <span className="name">{a.full_name}</span>
+                  </div>
+                </td>
                 <td>{a.job_title_snap ?? "—"}</td>
                 <td><StatusBadge status={a.status} /></td>
                 <td>{new Date(a.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r"><button className="mini" onClick={() => setSelected(a)}>Review</button></td>
+                <td className="r"><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(a); }}>Review</button></td>
               </tr>
             ))}
           </tbody>
@@ -117,11 +130,13 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
         <ApplicantDrawer
           a={selected}
           busy={busy}
+          operatorEmail={operatorEmail}
           onClose={() => setSelected(null)}
           onApprove={approve}
           onReject={() => setModal("reject")}
           onCorrect={() => setModal("correct")}
           onDelete={deleteApplicant}
+          onOfferSaved={load}
         />
       )}
 
@@ -136,38 +151,91 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
 
       <style jsx>{`
         .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-        .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+        .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; transition: all 0.15s; }
+        .chip:hover { border-color: var(--navy); color: var(--navy); }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+        tr { cursor: pointer; transition: background 0.1s; }
+        tr:hover td { background: var(--paper-2); }
         tr:last-child td { border-bottom: none; }
         .mono { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-2); }
-        .name { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; padding: 0; font-size: 14px; }
+        .nameCell { display: flex; align-items: center; gap: 10px; }
+        .avatarSm { width: 26px; height: 26px; border-radius: 50%; background: var(--navy-soft); color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+        .name { color: var(--ink); font-weight: 600; font-size: 14px; }
         .r { text-align: right; }
         .mini { background: var(--navy-soft); color: var(--navy); border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
-        .empty { text-align: center; color: var(--muted); padding: 30px; }
+        .empty { text-align: center; color: var(--muted); padding: 36px; font-size: 13px; }
       `}</style>
     </div>
   );
 }
 
-function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onDelete }: {
+function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onDelete, operatorEmail, onOfferSaved }: {
   a: Applicant; busy: boolean; onClose: () => void;
   onApprove: (a: Applicant) => void; onReject: () => void; onCorrect: () => void;
   onDelete: (a: Applicant, reasonLabel: string) => void;
+  operatorEmail: string; onOfferSaved: () => void;
 }) {
+  const hasOffer = !!a.offer_issued_at;
+  const [editingOffer, setEditingOffer] = useState(!hasOffer);
+  const [offer, setOffer] = useState({
+    role: a.offer_role ?? a.job_title_snap ?? "",
+    employmentType: a.offer_employment_type ?? "Full-time",
+    startDate: a.offer_start_date ?? "",
+    salary: a.offer_salary ?? "",
+    reportingTo: a.offer_reporting_to ?? "",
+    additionalTerms: a.offer_additional_terms ?? "",
+  });
+  const [savingOffer, setSavingOffer] = useState(false);
+  const [offerErr, setOfferErr] = useState<string | null>(null);
+  const up = (k: string, v: string) => setOffer((p) => ({ ...p, [k]: v }));
+
+  async function saveOffer() {
+    setOfferErr(null);
+    if (!offer.role.trim() || !offer.startDate.trim() || !offer.salary.trim() || !offer.reportingTo.trim()) {
+      setOfferErr("Role, start date, compensation, and reporting-to are required.");
+      return;
+    }
+    setSavingOffer(true);
+    const { error } = await supabase.rpc("save_job_offer", {
+      p_id: a.id, p_role: offer.role.trim(), p_employment_type: offer.employmentType.trim(),
+      p_start_date: offer.startDate.trim(), p_salary: offer.salary.trim(),
+      p_reporting_to: offer.reportingTo.trim(), p_additional_terms: offer.additionalTerms.trim() || null,
+      p_by: operatorEmail,
+    });
+    setSavingOffer(false);
+    if (error) { setOfferErr(error.message); return; }
+    setEditingOffer(false);
+    onOfferSaved();
+  }
+
+  async function download() {
+    const { generateOfferLetterPdf } = await import("@/lib/offerLetter");
+    await generateOfferLetterPdf(
+      {
+        fullName: a.full_name, role: offer.role, startDate: offer.startDate, salary: offer.salary,
+        employmentType: offer.employmentType, reportingTo: offer.reportingTo,
+        additionalTerms: offer.additionalTerms, issuedBy: a.offer_issued_by ?? operatorEmail,
+      },
+      a.form_number
+    );
+  }
+
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="drawer card" onClick={(e) => e.stopPropagation()}>
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="drawer card" onMouseDown={(e) => e.stopPropagation()}>
         <div className="dh">
-          <div>
-            <h3>{a.full_name}</h3>
-            <span className="mono">{a.form_number}</span>
-            <StatusBadge status={a.status} />
+          <div className="dhLeft">
+            <div className="avatar">{a.full_name.slice(0, 1).toUpperCase()}</div>
+            <div>
+              <h3>{a.full_name}</h3>
+              <div className="dhMeta"><span className="mono">{a.form_number}</span><StatusBadge status={a.status} /></div>
+            </div>
           </div>
-          <button className="x" onClick={onClose}>✕</button>
+          <button className="x" onClick={onClose} type="button">✕</button>
         </div>
 
         <div className="grid">
@@ -178,7 +246,7 @@ function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onD
         </div>
 
         {a.resume_url && (
-          <a className="resumeLink" href={a.resume_url} target="_blank" rel="noreferrer">View CV / resume ↗</a>
+          <a className="resumeLink" href={a.resume_url} target="_blank" rel="noreferrer">📄 View CV / resume</a>
         )}
 
         {a.cover_note && (
@@ -196,43 +264,106 @@ function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onD
         )}
 
         {a.status === "approved" && (
-          <div className="approveBox card">
-            <h4>Next step</h4>
-            <p className="hint">This applicant is approved. Generate their offer of appointment from the Offer Letters section (coming next).</p>
+          <div className="offerBox card">
+            <div className="offerHead">
+              <h4>Offer of appointment</h4>
+              {hasOffer && !editingOffer && (
+                <button className="mini" type="button" onClick={() => setEditingOffer(true)}>Edit</button>
+              )}
+            </div>
+
+            {editingOffer ? (
+              <>
+                <div className="two">
+                  <div><label>Role / title</label><input value={offer.role} onChange={(e) => up("role", e.target.value)} /></div>
+                  <div>
+                    <label>Employment type</label>
+                    <select value={offer.employmentType} onChange={(e) => up("employmentType", e.target.value)}>
+                      <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Internship</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="two">
+                  <div><label>Start date</label><input value={offer.startDate} onChange={(e) => up("startDate", e.target.value)} placeholder="1 September 2026" /></div>
+                  <div><label>Compensation</label><input value={offer.salary} onChange={(e) => up("salary", e.target.value)} placeholder="NGN 150,000 / month" /></div>
+                </div>
+                <label>Reporting to</label>
+                <input value={offer.reportingTo} onChange={(e) => up("reportingTo", e.target.value)} />
+                <label>Additional terms (optional)</label>
+                <textarea rows={3} value={offer.additionalTerms} onChange={(e) => up("additionalTerms", e.target.value)} />
+                {offerErr && <div className="err">{offerErr}</div>}
+                <div className="row2">
+                  {hasOffer && <button className="btn ghost" type="button" onClick={() => setEditingOffer(false)}>Cancel</button>}
+                  <button className="btn ok" type="button" disabled={savingOffer} onClick={saveOffer}>
+                    {savingOffer ? "Saving…" : hasOffer ? "Save changes" : "Issue offer"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="offerSummary">
+                  <div><span>Role</span><strong>{offer.role}</strong></div>
+                  <div><span>Start date</span><strong>{offer.startDate}</strong></div>
+                  <div><span>Compensation</span><strong>{offer.salary}</strong></div>
+                  <div><span>Reporting to</span><strong>{offer.reportingTo}</strong></div>
+                </div>
+                <p className="hint">Issued {a.offer_issued_at ? new Date(a.offer_issued_at).toLocaleString("en-GB") : ""} by {a.offer_issued_by}. The candidate can also download this from their own status page.</p>
+                <button className="btn" type="button" onClick={download} style={{ width: "100%", marginTop: 10 }}>⬇ Download offer letter (PDF)</button>
+              </>
+            )}
           </div>
         )}
 
         <div className="actions">
           {(a.status === "pending" || a.status === "needs_correction") && (
             <>
-              <button className="btn ok" disabled={busy} onClick={() => onApprove(a)}>{busy ? "Saving…" : "Approve"}</button>
-              <button className="btn ghost" onClick={onCorrect}>Request correction</button>
-              <button className="btn danger" onClick={onReject}>Reject</button>
+              <button className="btn ok" type="button" disabled={busy} onClick={() => onApprove(a)}>{busy ? "Saving…" : "Approve"}</button>
+              <button className="btn ghost" type="button" onClick={onCorrect}>Request correction</button>
+              <button className="btn danger" type="button" onClick={onReject}>Reject</button>
             </>
           )}
           {(a.status === "rejected" || a.status === "needs_correction") && (
-            <button className="btn ghost" onClick={() => onDelete(a, "For when no response has been received.")}>Delete (no response)</button>
+            <button className="btn ghost" type="button" onClick={() => onDelete(a, "For when no response has been received.")}>Delete (no response)</button>
           )}
           {a.status === "approved" && (
-            <button className="btn ghost" onClick={() => onDelete(a, "Hiring process is complete for this candidate.")}>Delete (process complete)</button>
+            <button className="btn ghost" type="button" onClick={() => onDelete(a, "Hiring process is complete for this candidate.")}>Delete (process complete)</button>
           )}
         </div>
       </div>
       <style jsx>{`
-        .overlay { position: fixed; inset: 0; background: rgba(20,28,45,0.4); display: flex; justify-content: flex-end; z-index: 50; }
-        .drawer { width: 100%; max-width: 560px; background: var(--paper-2); height: 100%; overflow-y: auto; padding: 24px; }
-        .dh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 10px; }
-        h3 { font-size: 19px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
-        .mono { font-size: 12px; color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
-        .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; }
+        .overlay { position: fixed; inset: 0; background: rgba(20,28,45,0.45); display: flex; justify-content: flex-end; z-index: 50; backdrop-filter: blur(1px); }
+        .drawer { width: 100%; max-width: 580px; background: var(--paper-2); height: 100%; overflow-y: auto; padding: 26px; box-shadow: -8px 0 30px rgba(20,28,45,0.15); }
+        .dh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 10px; }
+        .dhLeft { display: flex; gap: 12px; align-items: center; }
+        .avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+        h3 { font-size: 19px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+        .dhMeta { display: flex; align-items: center; gap: 8px; }
+        .mono { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+        .x { background: none; border: none; font-size: 18px; color: var(--muted); cursor: pointer; line-height: 1; }
+        .x:hover { color: var(--ink); }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-        .resumeLink { display: inline-block; font-size: 13px; color: var(--navy); font-weight: 600; margin-bottom: 12px; }
+        .resumeLink { display: inline-block; font-size: 13px; color: var(--navy); font-weight: 600; margin-bottom: 12px; text-decoration: none; }
+        .resumeLink:hover { text-decoration: underline; }
         .msgBox { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
         .msgBox.note { background: #FBF0DC; border-color: transparent; }
         .l { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-        .approveBox { padding: 16px; margin: 16px 0; }
-        h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-        .hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
+        .offerBox { padding: 18px; margin: 18px 0; border: 1px solid var(--line-strong); }
+        .offerHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .mini { background: var(--navy-soft); color: var(--navy); border: none; border-radius: var(--radius-sm); padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 10px 0 5px; }
+        input, select, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; font-family: inherit; background: #fff; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        textarea { resize: vertical; }
+        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
+        .row2 { display: flex; gap: 10px; margin-top: 14px; }
+        .row2 .btn { flex: 1; }
+        .offerSummary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+        .offerSummary div { display: flex; flex-direction: column; gap: 2px; }
+        .offerSummary span { font-size: 11px; color: var(--muted); }
+        .offerSummary strong { font-size: 13px; color: var(--ink); }
+        .hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.4; }
         .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
       `}</style>
     </div>

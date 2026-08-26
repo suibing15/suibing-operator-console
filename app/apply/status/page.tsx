@@ -43,7 +43,7 @@ export default function ApplyStatus() {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Check application status</p>
 
         <label>Form number</label>
@@ -115,7 +115,7 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Update your application — {form}</p>
         {initial.reviewer_note && (
           <div className="noteBox" style={{ marginBottom: 14 }}>
@@ -147,7 +147,8 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
 const styles = `
   .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
   .box { padding: 34px; width: 100%; max-width: 440px; }
-  .brand { font-size: 24px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+  .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .logo { width: 34px; height: 34px; border-radius: 8px; }
   .brand span { font-weight: 400; }
   .sub { color: var(--muted); font-size: 13px; margin: 2px 0 20px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }

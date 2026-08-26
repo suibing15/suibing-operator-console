@@ -42,7 +42,7 @@ export default function CareersStatus() {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Check job application status</p>
 
         <label>Form number</label>
@@ -70,6 +70,9 @@ export default function CareersStatus() {
               <button className="btn" onClick={() => setEditing(true)} style={{ width: "100%", marginTop: 14 }}>
                 Edit &amp; resubmit
               </button>
+            )}
+            {status.status === "approved" && (
+              <OfferDownload form={form.trim().toUpperCase()} code={code.trim()} />
             )}
           </div>
         )}
@@ -110,7 +113,7 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>IT Services</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
         <p className="sub">Update your application — {form}</p>
         {initial.reviewer_note && (
           <div className="noteBox" style={{ marginBottom: 14 }}>
@@ -139,10 +142,70 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
   );
 }
 
+type OfferRow = {
+  full_name: string; offer_role: string; offer_employment_type: string; offer_start_date: string;
+  offer_salary: string; offer_reporting_to: string; offer_additional_terms: string | null;
+  offer_issued_by: string; offer_issued_at: string; form_number: string;
+};
+
+function OfferDownload({ form, code }: { form: string; code: string }) {
+  const [offer, setOffer] = useState<OfferRow | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true); setErr(null);
+    const { data, error } = await supabase.rpc("get_job_offer", { p_form: form, p_code: code });
+    setLoading(false); setChecked(true);
+    if (error) { setErr(error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    setOffer((row as OfferRow) ?? null);
+  }
+
+  async function download() {
+    if (!offer) return;
+    setDownloading(true);
+    const { generateOfferLetterPdf } = await import("@/lib/offerLetter");
+    await generateOfferLetterPdf(
+      {
+        fullName: offer.full_name, role: offer.offer_role, startDate: offer.offer_start_date,
+        salary: offer.offer_salary, employmentType: offer.offer_employment_type,
+        reportingTo: offer.offer_reporting_to, additionalTerms: offer.offer_additional_terms ?? undefined,
+        issuedBy: offer.offer_issued_by,
+      },
+      offer.form_number
+    );
+    setDownloading(false);
+  }
+
+  if (!checked) {
+    return (
+      <button className="btn" onClick={load} disabled={loading} style={{ width: "100%", marginTop: 14 }}>
+        {loading ? "Checking for offer letter…" : "Check for offer letter"}
+      </button>
+    );
+  }
+
+  if (err) return <div className="err" style={{ marginTop: 14 }}>{err}</div>;
+
+  if (!offer) {
+    return <p className="help" style={{ marginTop: 14 }}>Your offer letter isn't ready yet — please check back shortly.</p>;
+  }
+
+  return (
+    <button className="btn ok" onClick={download} disabled={downloading} style={{ width: "100%", marginTop: 14 }}>
+      {downloading ? "Preparing PDF…" : "⬇ Download offer letter (PDF)"}
+    </button>
+  );
+}
+
 const styles = `
   .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
   .box { padding: 34px; width: 100%; max-width: 440px; }
-  .brand { font-size: 24px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+  .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .logo { width: 34px; height: 34px; border-radius: 8px; }
   .brand span { font-weight: 400; }
   .sub { color: var(--muted); font-size: 13px; margin: 2px 0 20px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }

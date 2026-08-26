@@ -24,7 +24,7 @@ export default function Login() {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand">SUIBING <span>Bucket</span></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span></div>
         <p className="sub">Operator Console</p>
         {sent ? (
           <p className="ok">Check your email for a secure sign-in link.</p>
@@ -54,7 +54,8 @@ export default function Login() {
         .links a:hover { text-decoration: underline; }
         .links .dot { color: var(--muted); }
         .box { padding: 34px; width: 100%; max-width: 380px; }
-        .brand { font-size: 26px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+        .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .logo { width: 34px; height: 34px; border-radius: 8px; }
         .brand span { font-weight: 400; }
         .sub { color: var(--muted); font-size: 13px; margin: 2px 0 22px; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
