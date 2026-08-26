@@ -64,8 +64,9 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
   async function reject(reason: string) {
     if (!selected) return;
     setBusy(true);
-    await supabase.rpc("reject_prospect", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
+    const { error } = await supabase.rpc("reject_prospect", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not reject: " + error.message); return; }
     setModal(null); setSelected(null);
     load();
   }
@@ -73,8 +74,9 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
   async function requestCorrection(reason: string) {
     if (!selected) return;
     setBusy(true);
-    await supabase.rpc("request_prospect_correction", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
+    const { error } = await supabase.rpc("request_prospect_correction", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not request correction: " + error.message); return; }
     setModal(null); setSelected(null);
     load();
   }
@@ -82,8 +84,9 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
   async function deleteStale(p: Prospect) {
     if (!confirm(`Delete "${p.org_name}" (${p.form_number})? This is for when no response has been received. The event will be logged permanently.`)) return;
     setBusy(true);
-    await supabase.rpc("delete_stale_prospect", { p_id: p.id, p_by: operatorEmail });
+    const { error } = await supabase.rpc("delete_stale_prospect", { p_id: p.id, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not delete: " + error.message); return; }
     setSelected(null);
     load();
   }
@@ -134,12 +137,12 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
         />
       )}
 
-      {modal === "reject" && (
-        <ReasonModal title={`Reject "${selected?.org_name}"`} actionLabel="Reject" busy={busy}
+      {modal === "reject" && selected && (
+        <ReasonModal title={`Reject "${selected.org_name}"`} actionLabel="Reject" busy={busy}
           onCancel={() => setModal(null)} onSubmit={reject} />
       )}
-      {modal === "correct" && (
-        <ReasonModal title={`Request correction — "${selected?.org_name}"`} actionLabel="Request correction" busy={busy}
+      {modal === "correct" && selected && (
+        <ReasonModal title={`Request correction — "${selected.org_name}"`} actionLabel="Request correction" busy={busy}
           onCancel={() => setModal(null)} onSubmit={requestCorrection} />
       )}
 

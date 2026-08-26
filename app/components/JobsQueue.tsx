@@ -54,8 +54,9 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
   async function reject(reason: string) {
     if (!selected) return;
     setBusy(true);
-    await supabase.rpc("reject_job_application", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
+    const { error } = await supabase.rpc("reject_job_application", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not reject: " + error.message); return; }
     setModal(null); setSelected(null);
     load();
   }
@@ -63,8 +64,9 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
   async function requestCorrection(reason: string) {
     if (!selected) return;
     setBusy(true);
-    await supabase.rpc("request_job_correction", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
+    const { error } = await supabase.rpc("request_job_correction", { p_id: selected.id, p_reason: reason, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not request correction: " + error.message); return; }
     setModal(null); setSelected(null);
     load();
   }
@@ -72,8 +74,9 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
   async function deleteApplicant(a: Applicant, reasonLabel: string) {
     if (!confirm(`Delete "${a.full_name}" (${a.form_number})? ${reasonLabel}`)) return;
     setBusy(true);
-    await supabase.rpc("delete_stale_job_application", { p_id: a.id, p_by: operatorEmail });
+    const { error } = await supabase.rpc("delete_stale_job_application", { p_id: a.id, p_by: operatorEmail });
     setBusy(false);
+    if (error) { alert("Could not delete: " + error.message); return; }
     setSelected(null);
     load();
   }
@@ -122,12 +125,12 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
         />
       )}
 
-      {modal === "reject" && (
-        <ReasonModal title={`Reject "${selected?.full_name}"`} actionLabel="Reject" busy={busy}
+      {modal === "reject" && selected && (
+        <ReasonModal title={`Reject "${selected.full_name}"`} actionLabel="Reject" busy={busy}
           onCancel={() => setModal(null)} onSubmit={reject} />
       )}
-      {modal === "correct" && (
-        <ReasonModal title={`Request correction — "${selected?.full_name}"`} actionLabel="Request correction" busy={busy}
+      {modal === "correct" && selected && (
+        <ReasonModal title={`Request correction — "${selected.full_name}"`} actionLabel="Request correction" busy={busy}
           onCancel={() => setModal(null)} onSubmit={requestCorrection} />
       )}
 
