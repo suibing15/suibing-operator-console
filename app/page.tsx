@@ -360,6 +360,8 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
           {msg && <div className="msg">{msg}</div>}
         </div>
 
+        <InvoiceBox school={school} operatorEmail={operatorEmail} onIssued={loadActivity} />
+
         <div className="act-head">
           <h4>Activity history</h4>
           <button className="btn ghost" onClick={generatePdf}>Generate PDF report</button>
@@ -405,6 +407,116 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
         .at { font-size: 12px; color: var(--muted); }
         .det { font-size: 13px; color: var(--ink-2); margin-top: 5px; }
         @media (max-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } .pay-row { grid-template-columns: 1fr; } }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Invoice generator ----------
+type LineItem = { description: string; qty: string; unitPrice: string };
+
+function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; operatorEmail: string; onIssued: () => void }) {
+  const [items, setItems] = useState<LineItem[]>([{ description: "", qty: "1", unitPrice: "" }]);
+  const [notes, setNotes] = useState("Payment due within 7 days. Bank transfer details available on request.");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  function updateItem(i: number, field: keyof LineItem, value: string) {
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, [field]: value } : it)));
+  }
+  function addItem() { setItems((prev) => [...prev, { description: "", qty: "1", unitPrice: "" }]); }
+  function removeItem(i: number) { setItems((prev) => prev.filter((_, idx) => idx !== i)); }
+
+  const total = items.reduce((sum, it) => {
+    const q = parseFloat(it.qty) || 0;
+    const p = parseFloat(it.unitPrice) || 0;
+    return sum + q * p;
+  }, 0);
+
+  async function issueAndDownload() {
+    setErr(null); setMsg(null);
+    const cleanItems = items
+      .filter((it) => it.description.trim() && parseFloat(it.unitPrice) > 0)
+      .map((it) => ({ description: it.description.trim(), qty: parseFloat(it.qty) || 1, unit_price: parseFloat(it.unitPrice) || 0 }));
+    if (cleanItems.length === 0) { setErr("Add at least one line item with a description and price."); return; }
+
+    setBusy(true);
+    const { data, error } = await supabase.rpc("create_invoice", {
+      p_school_id: school.id, p_line_items: cleanItems, p_notes: notes.trim() || null, p_by: operatorEmail,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+
+    const { generateInvoicePdf } = await import("@/lib/invoice");
+    await generateInvoicePdf({
+      invoiceNumber: row.invoice_number,
+      schoolName: school.name,
+      currency: "NGN",
+      lineItems: cleanItems.map((c: any) => ({ description: c.description, qty: c.qty, unitPrice: c.unit_price })),
+      subtotal: row.total,
+      total: row.total,
+      notes,
+      issuedAt: new Date().toISOString(),
+    });
+
+    setMsg(`Invoice ${row.invoice_number} issued and downloaded. ${school.name} can also download it from their own invoice status page.`);
+    setItems([{ description: "", qty: "1", unitPrice: "" }]);
+    onIssued();
+  }
+
+  return (
+    <div className="inv card">
+      <h4>Generate invoice</h4>
+      <div className="invItems">
+        {items.map((it, i) => (
+          <div className="invRow" key={i}>
+            <input className="invDesc" placeholder="Description (e.g. Registration fee)" value={it.description}
+              onChange={(e) => updateItem(i, "description", e.target.value)} />
+            <input className="invQty" placeholder="Qty" value={it.qty}
+              onChange={(e) => updateItem(i, "qty", e.target.value.replace(/[^0-9.]/g, ""))} />
+            <input className="invPrice" placeholder="Unit price (NGN)" value={it.unitPrice}
+              onChange={(e) => updateItem(i, "unitPrice", e.target.value.replace(/[^0-9.]/g, ""))} />
+            {items.length > 1 && <button className="invRemove" type="button" onClick={() => removeItem(i)}>✕</button>}
+          </div>
+        ))}
+      </div>
+      <button className="btn ghost small" type="button" onClick={addItem}>+ Add line item</button>
+
+      <label>Payment terms / notes</label>
+      <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+
+      <div className="invTotal">
+        <span>Total</span>
+        <strong>NGN {total.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+      </div>
+
+      {err && <div className="err">{err}</div>}
+      {msg && <div className="msg">{msg}</div>}
+
+      <button className="btn ok" onClick={issueAndDownload} disabled={busy} style={{ width: "100%", marginTop: 10 }}>
+        {busy ? "Generating…" : "Issue invoice & download PDF"}
+      </button>
+
+      <style jsx>{`
+        .inv { padding: 16px; margin-bottom: 18px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+        .invItems { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+        .invRow { display: grid; grid-template-columns: 1fr 60px 130px 26px; gap: 8px; align-items: center; }
+        .invDesc, .invQty, .invPrice { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; background: #fff; }
+        .invDesc:focus, .invQty:focus, .invPrice:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        .invRemove { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; width: 26px; height: 30px; font-size: 12px; cursor: pointer; }
+        .btn.small { padding: 6px 12px; font-size: 12px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 14px 0 5px; }
+        textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; resize: vertical; background: #fff; }
+        textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        .invTotal { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+        .invTotal span { color: var(--muted); }
+        .invTotal strong { color: var(--navy); font-size: 17px; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
+        .msg { margin-top: 10px; font-size: 13px; color: var(--green); line-height: 1.4; }
+        @media (max-width: 560px) { .invRow { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );

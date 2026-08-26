@@ -74,6 +74,8 @@ export default function Careers() {
             <span className="dot2">·</span>
             <a href="/apply">Apply for school services</a>
             <span className="dot2">·</span>
+            <a href="/invoices">Check invoices</a>
+            <span className="dot2">·</span>
             <a href="/login">Operator sign-in</a>
           </div>
         </main>

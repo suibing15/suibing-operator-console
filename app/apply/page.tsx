@@ -137,6 +137,8 @@ export default function Apply() {
             <span className="dot2">·</span>
             <a href="/careers">Careers</a>
             <span className="dot2">·</span>
+            <a href="/invoices">Check invoices</a>
+            <span className="dot2">·</span>
             <a href="/login">Operator sign-in</a>
           </div>
         </main>
