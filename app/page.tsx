@@ -545,19 +545,31 @@ function PortalAccessBox({ school, operatorEmail, onChanged }: {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [justSetPin, setJustSetPin] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const hasPortalAccess = !!school.portal_pin_hash;
+  const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/school-portal` : "/school-portal";
 
   async function savePin() {
     setErr(null); setMsg(null);
-    if (pin.trim().length < 4) { setErr("PIN must be at least 4 characters."); return; }
+    const cleanPin = pin.trim();
+    if (cleanPin.length < 4) { setErr("PIN must be at least 4 characters."); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("set_school_pin", { p_school_id: school.id, p_pin: pin.trim(), p_by: operatorEmail });
+    const { error } = await supabase.rpc("set_school_pin", { p_school_id: school.id, p_pin: cleanPin, p_by: operatorEmail });
     setBusy(false);
     if (error) { setErr(error.message); return; }
-    setMsg(`Portal PIN ${hasPortalAccess ? "updated" : "set"}. Give the school their school key ("${school.school_key}") and this PIN to log in at /school-portal.`);
+    setJustSetPin(cleanPin);
     setPin(""); setShowPinForm(false);
     onChanged();
+  }
+
+  function copyCredentials() {
+    const text = `Suibing IT Services — School Portal login\n\nPortal: ${portalUrl}\nSchool key: ${school.school_key}\nPIN: ${justSetPin}\n\nKeep this safe.`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   async function sendWarning() {
@@ -579,6 +591,7 @@ function PortalAccessBox({ school, operatorEmail, onChanged }: {
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setMsg("Portal access revoked.");
+    setJustSetPin(null);
     onChanged();
   }
 
@@ -589,6 +602,19 @@ function PortalAccessBox({ school, operatorEmail, onChanged }: {
         <span className={`pill ${hasPortalAccess ? "on" : "off"}`}>{hasPortalAccess ? "Portal access enabled" : "No portal access yet"}</span>
         {school.portal_warning && <span className="pill warn">Warning pending (sent {school.portal_warned_at ? new Date(school.portal_warned_at).toLocaleDateString("en-GB") : ""})</span>}
       </div>
+
+      {justSetPin && (
+        <div className="credCard">
+          <div className="credLabel">Share these with the school (shown once — copy now)</div>
+          <div className="credRow"><span>Portal</span><strong>{portalUrl}</strong></div>
+          <div className="credRow"><span>School key</span><strong>{school.school_key}</strong></div>
+          <div className="credRow"><span>PIN</span><strong>{justSetPin}</strong></div>
+          <div className="credActions">
+            <button className="btn small" type="button" onClick={copyCredentials}>{copied ? "Copied ✓" : "Copy for WhatsApp"}</button>
+            <button className="btn ghost small" type="button" onClick={() => setJustSetPin(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {msg && <div className="msg">{msg}</div>}
       {err && <div className="err">{err}</div>}
@@ -627,6 +653,13 @@ function PortalAccessBox({ school, operatorEmail, onChanged }: {
         .pill.on { background: var(--green-soft); color: var(--green); }
         .pill.off { background: var(--paper-2); color: var(--muted); }
         .pill.warn { background: #FBF0DC; color: var(--amber); }
+        .credCard { background: var(--navy-soft); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 14px; }
+        .credLabel { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--navy); margin-bottom: 10px; letter-spacing: 0.02em; }
+        .credRow { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+        .credRow span { color: var(--ink-2); }
+        .credRow strong { color: var(--navy); font-variant-numeric: tabular-nums; word-break: break-all; text-align: right; margin-left: 12px; }
+        .credActions { display: flex; gap: 8px; margin-top: 12px; }
+        .credActions .btn { flex: 1; }
         .msg { font-size: 13px; color: var(--green); margin-bottom: 10px; line-height: 1.4; }
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 10px; }
         .actionsRow { display: flex; gap: 8px; flex-wrap: wrap; }
