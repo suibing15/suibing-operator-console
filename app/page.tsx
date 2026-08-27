@@ -48,11 +48,14 @@ export default function Home() {
         </nav>
 
         <div className="heroContent">
-          <div className="heroBadge">🇳🇬 Built in Kano, Nigeria</div>
-          <h1>Digitizing education,<br />one school at a time.</h1>
+          <div className="heroBadge">
+            <span className="heroBadgeTrack">🇳🇬 Built in Kano, Nigeria — serving schools and businesses nationwide</span>
+          </div>
+          <h1>Digital solutions that move business forward.</h1>
           <p className="heroSub">
-            SUIBING LIMITED builds the software Nigerian schools actually need — records,
-            examinations, fees, and more. One company, one point of contact, real support.
+            SUIBING LIMITED designs and builds software for schools, businesses, and individuals —
+            from school records and digital examinations to custom web and app development.
+            One company, one point of contact, real support behind every product we ship.
           </p>
           <div className="heroActions">
             <a href="/apply" className="btn heroBtn">Apply for a service →</a>
@@ -159,6 +162,7 @@ export default function Home() {
           Makwalla Junction, Garko LGA, Kano State, Nigeria<br />
           suibing15@gmail.com · +234 706 859 5598
         </div>
+        <div className="footerCopyright">© {new Date().getFullYear()} Suibing Limited. All rights reserved.</div>
       </footer>
 
       <WhatsAppButton />
@@ -187,7 +191,14 @@ const styles = `
   .navBtn { background: rgba(255,255,255,0.12); padding: 8px 16px; border-radius: 999px; }
 
   .heroContent { position: relative; max-width: 780px; margin: 60px auto 0; padding: 0 32px; text-align: center; }
-  .heroBadge { display: inline-block; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); padding: 6px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; margin-bottom: 24px; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.1s forwards; }
+  .heroBadge { display: inline-flex; align-items: center; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); padding: 6px 0; border-radius: 999px; font-size: 12.5px; font-weight: 600; margin-bottom: 24px; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.1s forwards, badgeGlow 4s ease-in-out infinite 0.8s; width: 340px; max-width: 82vw; overflow: hidden; position: relative; }
+  .heroBadgeTrack { display: inline-block; white-space: nowrap; padding-left: 100%; animation: badgeSlide 11s linear infinite; }
+  @keyframes badgeSlide { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+  @keyframes badgeGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 16px 1px rgba(255,255,255,0.12); } }
+  @media (prefers-reduced-motion: reduce) {
+    .heroBadgeTrack { animation: none; padding-left: 16px; white-space: normal; }
+    .heroBadge { width: auto; }
+  }
   h1 { font-size: 44px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 20px; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.2s forwards; }
   .heroSub { font-size: 16.5px; color: rgba(255,255,255,0.8); line-height: 1.65; max-width: 600px; margin: 0 auto 34px; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.3s forwards; }
   .heroActions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.4s forwards; }
@@ -252,4 +263,5 @@ const styles = `
   .footerLinks a { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; font-weight: 600; }
   .footerLinks a:hover { color: #fff; }
   .footerContact { max-width: 1100px; margin: 0 auto; font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.7; }
+  .footerCopyright { max-width: 1100px; margin: 20px auto 0; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11.5px; color: rgba(255,255,255,0.4); }
 `;
