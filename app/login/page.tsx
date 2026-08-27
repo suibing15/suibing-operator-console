@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { supabase, isConfigured } from "@/lib/supabaseClient";
+import WhatsAppButton from "@/app/components/WhatsAppButton";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -51,6 +52,7 @@ export default function Login() {
         <span className="dot">·</span>
         <a href="/school-portal">School portal</a>
       </div>
+      <WhatsAppButton />
       <style jsx>{`
         .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
         .links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: 13px; }

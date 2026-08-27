@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import WhatsAppButton from "@/app/components/WhatsAppButton";
 
 type Status = {
   form_number: string; request_type: string; product: string; org_name: string;
@@ -81,6 +82,7 @@ export default function ApplyStatus() {
         <span className="dot">·</span>
         <a href="/login">Operator sign-in</a>
       </div>
+      <WhatsAppButton />
       <style jsx>{styles}</style>
     </div>
   );

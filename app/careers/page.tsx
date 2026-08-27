@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import WhatsAppButton from "@/app/components/WhatsAppButton";
 
 type Job = { id: string; title: string; description: string | null };
 type Result = { form_number: string; login_code: string };
@@ -80,6 +81,7 @@ export default function Careers() {
           </div>
         </main>
       </div>
+      <WhatsAppButton />
       <style jsx>{styles}</style>
     </div>
   );
