@@ -38,13 +38,8 @@ export default function Home() {
           <span className="blob b3" />
         </div>
         <nav className="nav">
-          <div className="navBrand"><img src="/logo.png" alt="" className="navLogo" />SUIBING <span>IT Services</span></div>
-          <div className="navLinks">
-            <a href="/careers">Careers</a>
-            <a href="/invoices">Invoices</a>
-            <a href="/school-portal">School portal</a>
-            <a href="/login" className="navBtn">Operator sign-in</a>
-          </div>
+          <div className="navBrand"><img src="/logo.png" alt="" className="navLogo" /><span className="navBrandText">SUIBING <em>IT Services</em></span></div>
+          <a href="/login" className="navBtn">Operator sign-in</a>
         </nav>
 
         <div className="heroContent">
@@ -230,13 +225,17 @@ const styles = `
   .b3 { width: 220px; height: 220px; background: radial-gradient(circle, rgba(183,121,31,0.2), transparent 70%); top: 30%; left: 50%; animation: sbFloat 8s ease-in-out infinite; }
 
   .nav { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; max-width: 1100px; margin: 0 auto; flex-wrap: wrap; gap: 12px; }
-  .navBrand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
-  .navLogo { width: 32px; height: 32px; border-radius: 8px; }
-  .navBrand span { font-weight: 400; color: rgba(255,255,255,0.7); }
-  .navLinks { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-  .navLinks a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13.5px; font-weight: 600; }
-  .navLinks a:hover { color: #fff; }
-  .navBtn { background: rgba(255,255,255,0.12); padding: 8px 16px; border-radius: 999px; }
+  .navBrand { display: flex; align-items: center; gap: 12px; }
+  .navLogo { width: 38px; height: 38px; border-radius: 9px; }
+  .navBrandText { font-weight: 800; font-size: 21px; letter-spacing: -0.01em; color: #fff; }
+  .navBrandText em { font-weight: 400; font-style: normal; color: rgba(255,255,255,0.75); }
+  .navBtn { background: rgba(255,255,255,0.12); padding: 9px 18px; border-radius: 999px; color: rgba(255,255,255,0.9); text-decoration: none; font-size: 13.5px; font-weight: 600; transition: background 0.15s, color 0.15s; }
+  .navBtn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  @media (max-width: 480px) {
+    .navBrandText { font-size: 17px; }
+    .navLogo { width: 32px; height: 32px; }
+    .navBtn { padding: 7px 14px; font-size: 12.5px; }
+  }
 
   .heroContent { position: relative; max-width: 780px; margin: 60px auto 0; padding: 0 32px; text-align: center; }
   .heroBadge { display: inline-flex; align-items: center; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); padding: 6px 0; border-radius: 999px; font-size: 12.5px; font-weight: 600; margin-bottom: 24px; opacity: 0; animation: sbFadeUp 0.6s ease-out 0.1s forwards, badgeGlow 4s ease-in-out infinite 0.8s; width: 340px; max-width: 82vw; overflow: hidden; position: relative; }
