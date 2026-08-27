@@ -3,9 +3,11 @@
 // installability). Never caches Supabase API calls, RPCs, or the
 // /api/generate-contract route — operator data must always be fresh.
 
-const CACHE_NAME = "suibing-console-shell-v1";
+const CACHE_NAME = "suibing-console-shell-v3";
 const SHELL_ASSETS = [
   "/",
+  "/console",
+  "/login",
   "/manifest.json",
   "/logo.png",
   "/icon-192.png",

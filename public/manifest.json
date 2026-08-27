@@ -1,7 +1,7 @@
 {
-  "name": "SUIBING Operator Console",
-  "short_name": "SUIBING Console",
-  "description": "Operator console for SUIBING IT Services — manage schools, prospects, job applicants, invoices, and contracts.",
+  "name": "SUIBING IT Services",
+  "short_name": "SUIBING",
+  "description": "School software and digital services from Suibing IT Services — records, examinations, fees, and more.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

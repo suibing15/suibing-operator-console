@@ -4,8 +4,8 @@ import { AuthProvider } from "@/lib/auth";
 import ServiceWorkerRegister from "@/lib/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "SUIBING Operator Console",
-  description: "Operator console for SUIBING IT Services — manage schools, prospects, job applicants, invoices, and contracts.",
+  title: "SUIBING IT Services",
+  description: "School software and digital services from Suibing IT Services — records, examinations, fees, and more.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SUIBING Console",
+    title: "SUIBING",
   },
 };
 

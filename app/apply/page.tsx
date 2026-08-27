@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 const PRODUCTS = [
@@ -16,6 +17,15 @@ const PRODUCTS = [
 type Result = { form_number: string; login_code: string };
 
 export default function Apply() {
+  return (
+    <Suspense fallback={null}>
+      <ApplyInner />
+    </Suspense>
+  );
+}
+
+function ApplyInner() {
+  const searchParams = useSearchParams();
   const [requestType, setRequestType] = useState<"new" | "update">("new");
   const [f, setF] = useState({
     product: "bucket", org_name: "", contact_person: "",
@@ -25,6 +35,13 @@ export default function Apply() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const up = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    const productParam = searchParams.get("product");
+    if (productParam && PRODUCTS.some((p) => p.value === productParam)) {
+      setF((prev) => ({ ...prev, product: productParam }));
+    }
+  }, [searchParams]);
 
   async function submit() {
     setErr(null);

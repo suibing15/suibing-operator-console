@@ -1,13 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabaseClient";
+import { useAuth } from "@/lib/auth";
 import WhatsAppButton from "@/app/components/WhatsAppButton";
 
 export default function Login() {
+  const router = useRouter();
+  const { email: sessionEmail, isOperator, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!loading && sessionEmail && isOperator) {
+      router.replace("/console");
+    }
+  }, [loading, sessionEmail, isOperator, router]);
 
   async function send() {
     setErr(null);
@@ -16,7 +26,7 @@ export default function Login() {
     setBusy(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+      options: { emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/console` : undefined },
     });
     setBusy(false);
     if (error) setErr(error.message); else setSent(true);
