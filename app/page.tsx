@@ -23,6 +23,10 @@ type School = {
   records_count: number;
   counts_updated: string | null;
   notes: string | null;
+  blocked_reason: string | null;
+  portal_pin_hash: string | null;
+  portal_warning: string | null;
+  portal_warned_at: string | null;
 };
 
 type Activity = {
@@ -80,19 +84,22 @@ export default function Console() {
 
   async function toggleStatus(s: School) {
     const next = s.status === "active" ? "disabled" : "active";
-    const verb = next === "disabled" ? "disable" : "re-enable";
-    if (!confirm(`Are you sure you want to ${verb} "${s.name}"? Their data is preserved; only access changes.`)) return;
+    let reason: string | null = null;
+    if (next === "disabled") {
+      reason = window.prompt(`Reason for disabling "${s.name}"? This will be shown to the school on their portal.`, "");
+      if (reason === null) return; // cancelled
+      if (!reason.trim()) { alert("A reason is required so the school understands why access was paused."); return; }
+    } else {
+      if (!confirm(`Re-enable "${s.name}"? Their portal access and app access will be restored.`)) return;
+    }
     setBusy(true);
-    await supabase.from("schools").update({ status: next }).eq("id", s.id);
-    await supabase.from("activity_log").insert({
-      school_id: s.id, school_key: s.school_key,
-      event: next === "disabled" ? "disabled" : "enabled",
-      detail: next === "disabled" ? "Access paused (non-payment or operator action)" : "Access restored",
-      by_email: email,
+    const { error } = await supabase.rpc("set_school_status", {
+      p_school_id: s.id, p_status: next, p_reason: reason, p_by: email,
     });
     setBusy(false);
+    if (error) { alert(error.message); return; }
     load();
-    if (selected?.id === s.id) setSelected({ ...s, status: next });
+    if (selected?.id === s.id) setSelected({ ...s, status: next, blocked_reason: next === "disabled" ? reason : null });
   }
 
   return (
@@ -248,11 +255,19 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
   const [months, setMonths] = useState("3");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const loadActivity = useCallback(async () => {
-    const { data } = await supabase.from("activity_log").select("*").eq("school_id", school.id).order("at", { ascending: false });
+    const { data } = await supabase.rpc("list_activity_log", {
+      p_school_id: school.id,
+      p_from: dateFrom || null,
+      p_to: dateTo || null,
+      p_limit: 500,
+    });
     setActivity((data as Activity[]) ?? []);
-  }, [school.id]);
+  }, [school.id, dateFrom, dateTo]);
 
   useEffect(() => { loadActivity(); }, [loadActivity]);
 
@@ -328,9 +343,24 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
             <span className={`badge ${school.status}`}>{school.status}</span>
             <span className="k">{school.school_key}</span>
           </div>
-          <button className="x" onClick={onClose}>✕</button>
+          <div className="dhActions">
+            <button className="mini" onClick={() => setEditing(true)} type="button">Edit</button>
+            <button className="x" onClick={onClose}>✕</button>
+          </div>
         </div>
 
+        {school.status === "disabled" && school.blocked_reason && (
+          <div className="blockedNote">
+            <strong>Disabled — reason shown to school:</strong> {school.blocked_reason}
+          </div>
+        )}
+
+        {editing ? (
+          <EditSchoolForm school={school} operatorEmail={operatorEmail}
+            onCancel={() => setEditing(false)}
+            onSaved={() => { setEditing(false); onChanged(); loadActivity(); }} />
+        ) : (
+          <>
         <div className="grid">
           <Field label="Students" value={String(school.students_count)} />
           <Field label="Records" value={String(school.records_count)} />
@@ -340,6 +370,8 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
           <Field label="Email" value={school.contact_email ?? "—"} />
         </div>
         {school.app_url && <a className="url" href={school.app_url} target="_blank" rel="noreferrer">{school.app_url}</a>}
+
+        <PortalAccessBox school={school} operatorEmail={operatorEmail} onChanged={onChanged} />
 
         <div className="pay card">
           <h4>Record a payment (manual)</h4>
@@ -369,8 +401,21 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
           <h4>Activity history</h4>
           <button className="btn ghost" onClick={generatePdf}>Generate PDF report</button>
         </div>
+        <div className="dateFilter">
+          <div>
+            <label>From</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div>
+            <label>To</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button className="btn ghost small" type="button" onClick={() => { setDateFrom(""); setDateTo(""); }}>Clear</button>
+          )}
+        </div>
         <div className="acts">
-          {activity.length === 0 ? <p className="none">No activity yet.</p> : activity.map((a) => (
+          {activity.length === 0 ? <p className="none">No activity in this range.</p> : activity.map((a) => (
             <div key={a.id} className="act">
               <div className="act-top">
                 <span className={`ev ev-${a.event}`}>{a.event.replace(/_/g, " ")}</span>
@@ -380,11 +425,18 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
             </div>
           ))}
         </div>
+
+        <DangerZone school={school} operatorEmail={operatorEmail} onDeleted={() => { onClose(); onChanged(); }} />
+          </>
+        )}
       </div>
       <style jsx>{`
         .overlay { position: fixed; inset: 0; background: rgba(20,28,45,0.4); display: flex; justify-content: flex-end; z-index: 50; }
         .drawer { width: 100%; max-width: 560px; background: var(--paper-2); height: 100%; overflow-y: auto; padding: 24px; }
         .dh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+        .dhActions { display: flex; gap: 8px; align-items: center; }
+        .mini { background: var(--navy-soft); color: var(--navy); border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .blockedNote { background: var(--red-soft); color: var(--red); padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
         h3 { font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
         .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
         .badge.active { background: var(--green-soft); color: var(--green); }
@@ -400,6 +452,10 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
         input, select { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; background: #fff; }
         .msg { margin-top: 10px; font-size: 13px; color: var(--green); }
         .act-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .dateFilter { display: flex; gap: 10px; align-items: end; margin-bottom: 14px; }
+        .dateFilter label { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+        .dateFilter input { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 7px 9px; font-size: 13px; background: #fff; }
+        .btn.small { padding: 7px 12px; font-size: 12px; }
         .acts { display: flex; flex-direction: column; gap: 8px; }
         .none { color: var(--muted); font-size: 13px; }
         .act { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px 13px; }
@@ -415,10 +471,230 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
   );
 }
 
+// ---------- Edit school ----------
+function EditSchoolForm({ school, operatorEmail, onCancel, onSaved }: {
+  school: School; operatorEmail: string; onCancel: () => void; onSaved: () => void;
+}) {
+  const [name, setName] = useState(school.name);
+  const [contactPerson, setContactPerson] = useState(school.contact_person ?? "");
+  const [contactEmail, setContactEmail] = useState(school.contact_email ?? "");
+  const [appUrl, setAppUrl] = useState(school.app_url ?? "");
+  const [plan, setPlan] = useState(school.plan);
+  const [notes, setNotes] = useState(school.notes ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    setErr(null);
+    if (!name.trim()) { setErr("School name is required."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("update_school", {
+      p_school_id: school.id, p_name: name, p_contact_person: contactPerson,
+      p_contact_email: contactEmail, p_app_url: appUrl, p_plan: plan, p_notes: notes, p_by: operatorEmail,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    onSaved();
+  }
+
+  return (
+    <div className="editBox card">
+      <h4>Edit school profile</h4>
+      <label>School name</label>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="two">
+        <div><label>Contact person</label><input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} /></div>
+        <div><label>Contact email</label><input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></div>
+      </div>
+      <label>App URL</label>
+      <input value={appUrl} onChange={(e) => setAppUrl(e.target.value)} placeholder="https://..." />
+      <label>Plan</label>
+      <input value={plan} onChange={(e) => setPlan(e.target.value)} />
+      <label>Internal notes</label>
+      <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      {err && <div className="err">{err}</div>}
+      <div className="row2">
+        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
+        <button className="btn ok" type="button" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+      </div>
+      <style jsx>{`
+        .editBox { padding: 18px; margin-bottom: 18px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
+        input, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        input:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        textarea { resize: vertical; }
+        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+        .row2 { display: flex; gap: 10px; margin-top: 16px; }
+        .row2 .btn { flex: 1; }
+        @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Portal access (PIN, warning, revoke) ----------
+function PortalAccessBox({ school, operatorEmail, onChanged }: {
+  school: School; operatorEmail: string; onChanged: () => void;
+}) {
+  const [showPinForm, setShowPinForm] = useState(false);
+  const [showWarnForm, setShowWarnForm] = useState(false);
+  const [pin, setPin] = useState("");
+  const [warning, setWarning] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const hasPortalAccess = !!school.portal_pin_hash;
+
+  async function savePin() {
+    setErr(null); setMsg(null);
+    if (pin.trim().length < 4) { setErr("PIN must be at least 4 characters."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("set_school_pin", { p_school_id: school.id, p_pin: pin.trim(), p_by: operatorEmail });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setMsg(`Portal PIN ${hasPortalAccess ? "updated" : "set"}. Give the school their school key ("${school.school_key}") and this PIN to log in at /school-portal.`);
+    setPin(""); setShowPinForm(false);
+    onChanged();
+  }
+
+  async function sendWarning() {
+    setErr(null); setMsg(null);
+    if (!warning.trim()) { setErr("Enter a warning message."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("send_portal_warning", { p_school_id: school.id, p_message: warning.trim(), p_by: operatorEmail });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setMsg("Warning sent — the school will see it next time they open their portal.");
+    setWarning(""); setShowWarnForm(false);
+    onChanged();
+  }
+
+  async function revoke() {
+    if (!confirm(`Revoke portal access for "${school.name}"? They will no longer be able to log in until you set a new PIN.`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("revoke_school_portal", { p_school_id: school.id, p_by: operatorEmail });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setMsg("Portal access revoked.");
+    onChanged();
+  }
+
+  return (
+    <div className="portalBox card">
+      <h4>School portal access</h4>
+      <div className="statusRow">
+        <span className={`pill ${hasPortalAccess ? "on" : "off"}`}>{hasPortalAccess ? "Portal access enabled" : "No portal access yet"}</span>
+        {school.portal_warning && <span className="pill warn">Warning pending (sent {school.portal_warned_at ? new Date(school.portal_warned_at).toLocaleDateString("en-GB") : ""})</span>}
+      </div>
+
+      {msg && <div className="msg">{msg}</div>}
+      {err && <div className="err">{err}</div>}
+
+      {showPinForm ? (
+        <div className="inlineForm">
+          <label>{hasPortalAccess ? "New PIN" : "Set a PIN"} (min. 4 characters)</label>
+          <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder="e.g. 4821" />
+          <div className="row2">
+            <button className="btn ghost" type="button" onClick={() => setShowPinForm(false)}>Cancel</button>
+            <button className="btn ok" type="button" onClick={savePin} disabled={busy}>{busy ? "Saving…" : "Save PIN"}</button>
+          </div>
+        </div>
+      ) : showWarnForm ? (
+        <div className="inlineForm">
+          <label>Warning message (shown once to the school)</label>
+          <textarea rows={3} value={warning} onChange={(e) => setWarning(e.target.value)} placeholder="e.g. Your portal access looks unused — please contact us or access may be revoked." />
+          <div className="row2">
+            <button className="btn ghost" type="button" onClick={() => setShowWarnForm(false)}>Cancel</button>
+            <button className="btn" type="button" onClick={sendWarning} disabled={busy}>{busy ? "Sending…" : "Send warning"}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="actionsRow">
+          <button className="btn ghost small" type="button" onClick={() => setShowPinForm(true)}>{hasPortalAccess ? "Change PIN" : "Set PIN"}</button>
+          {hasPortalAccess && <button className="btn ghost small" type="button" onClick={() => setShowWarnForm(true)}>Send warning</button>}
+          {hasPortalAccess && <button className="btn danger small" type="button" onClick={revoke} disabled={busy}>Revoke access</button>}
+        </div>
+      )}
+
+      <style jsx>{`
+        .portalBox { padding: 18px; margin-bottom: 18px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+        .statusRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .pill { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+        .pill.on { background: var(--green-soft); color: var(--green); }
+        .pill.off { background: var(--paper-2); color: var(--muted); }
+        .pill.warn { background: #FBF0DC; color: var(--amber); }
+        .msg { font-size: 13px; color: var(--green); margin-bottom: 10px; line-height: 1.4; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 10px; }
+        .actionsRow { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn.small { padding: 7px 12px; font-size: 12px; }
+        .inlineForm label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+        .inlineForm input, .inlineForm textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        .inlineForm textarea { resize: vertical; }
+        .row2 { display: flex; gap: 10px; margin-top: 12px; }
+        .row2 .btn { flex: 1; }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Danger zone: delete school ----------
+function DangerZone({ school, operatorEmail, onDeleted }: {
+  school: School; operatorEmail: string; onDeleted: () => void;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  async function doDelete() {
+    setErr(null);
+    if (confirmText.trim() !== school.name) { setErr("Type the exact school name to confirm."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("delete_school", { p_school_id: school.id, p_by: operatorEmail });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    onDeleted();
+  }
+
+  return (
+    <div className="danger card">
+      <button className="toggle" type="button" onClick={() => setOpen((o) => !o)}>
+        {open ? "▾" : "▸"} Danger zone
+      </button>
+      {open && (
+        <div className="body">
+          <p>Permanently delete "{school.name}" and all of its invoices. This cannot be undone. Activity log history is kept for your records but will no longer reference this school by name.</p>
+          <label>Type the school name to confirm: <strong>{school.name}</strong></label>
+          <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+          {err && <div className="err">{err}</div>}
+          <button className="btn danger" type="button" onClick={doDelete} disabled={busy || confirmText.trim() !== school.name} style={{ width: "100%", marginTop: 10 }}>
+            {busy ? "Deleting…" : "Permanently delete this school"}
+          </button>
+        </div>
+      )}
+      <style jsx>{`
+        .danger { padding: 16px 18px; margin: 24px 0 8px; border-color: var(--red-soft); }
+        .toggle { background: none; border: none; color: var(--red); font-size: 13px; font-weight: 700; cursor: pointer; padding: 0; }
+        .body { margin-top: 14px; }
+        .body p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 12px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+        input { width: 100%; border: 1px solid var(--red-soft); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; background: #fff; box-sizing: border-box; }
+        input:focus { outline: none; border-color: var(--red); }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
+      `}</style>
+    </div>
+  );
+}
+
 // ---------- Invoice generator ----------
 type LineItem = { description: string; qty: string; unitPrice: string };
 
 function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; operatorEmail: string; onIssued: () => void }) {
+  const [invoiceType, setInvoiceType] = useState("subscription");
   const [items, setItems] = useState<LineItem[]>([{ description: "", qty: "1", unitPrice: "" }]);
   const [notes, setNotes] = useState("Payment due within 7 days. Bank transfer details available on request.");
   const [busy, setBusy] = useState(false);
@@ -447,6 +723,7 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
     setBusy(true);
     const { data, error } = await supabase.rpc("create_invoice", {
       p_school_id: school.id, p_line_items: cleanItems, p_notes: notes.trim() || null, p_by: operatorEmail,
+      p_invoice_type: invoiceType,
     });
     setBusy(false);
     if (error) { setErr(error.message); return; }
@@ -464,7 +741,7 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
       issuedAt: new Date().toISOString(),
     });
 
-    setMsg(`Invoice ${row.out_invoice_number} issued and downloaded. ${school.name} can also download it from their own invoice status page.`);
+    setMsg(`Invoice ${row.out_invoice_number} issued and downloaded. ${school.name} can also download it from their own invoice/portal page.`);
     setItems([{ description: "", qty: "1", unitPrice: "" }]);
     onIssued();
   }
@@ -472,6 +749,15 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
   return (
     <div className="inv card">
       <h4>Generate invoice</h4>
+      <label>Invoice type</label>
+      <select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value)} style={{ marginBottom: 12 }}>
+        <option value="subscription">Subscription / registration</option>
+        <option value="hosting">Hosting charge</option>
+        <option value="storage">Storage charge</option>
+        <option value="domain">Domain charge</option>
+        <option value="custom">Custom work</option>
+        <option value="other">Other</option>
+      </select>
       <div className="invItems">
         {items.map((it, i) => (
           <div className="invRow" key={i}>
@@ -512,6 +798,8 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
         .invRemove { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; width: 26px; height: 30px; font-size: 12px; cursor: pointer; }
         .btn.small { padding: 6px 12px; font-size: 12px; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 14px 0 5px; }
+        select { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        select:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
         textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; resize: vertical; background: #fff; }
         textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
         .invTotal { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
