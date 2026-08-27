@@ -8,7 +8,9 @@ import WhatsAppButton from "@/app/components/WhatsAppButton";
 export default function Login() {
   const router = useRouter();
   const { email: sessionEmail, isOperator, loading } = useAuth();
+  const [mode, setMode] = useState<"magic" | "password">("password");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,7 +21,7 @@ export default function Login() {
     }
   }, [loading, sessionEmail, isOperator, router]);
 
-  async function send() {
+  async function sendMagicLink() {
     setErr(null);
     if (!isConfigured) { setErr("Console not configured. Set environment variables."); return; }
     if (!email.trim()) { setErr("Enter your operator email."); return; }
@@ -32,22 +34,54 @@ export default function Login() {
     if (error) setErr(error.message); else setSent(true);
   }
 
+  async function signInWithPassword() {
+    setErr(null);
+    if (!isConfigured) { setErr("Console not configured. Set environment variables."); return; }
+    if (!email.trim() || !password) { setErr("Enter your email and password."); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    router.replace("/console");
+  }
+
   return (
     <div className="wrap">
       <div className="card box">
         <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span></div>
         <p className="sub">Operator Console</p>
-        {sent ? (
-          <p className="ok">Check your email for a secure sign-in link.</p>
+
+        <div className="toggle">
+          <button type="button" className={mode === "password" ? "seg on" : "seg"} onClick={() => { setMode("password"); setErr(null); setSent(false); }}>Password</button>
+          <button type="button" className={mode === "magic" ? "seg on" : "seg"} onClick={() => { setMode("magic"); setErr(null); setSent(false); }}>Magic link</button>
+        </div>
+
+        {mode === "magic" ? (
+          sent ? (
+            <p className="ok">Check your email for a secure sign-in link.</p>
+          ) : (
+            <>
+              <label>Operator email</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+                onKeyDown={(e) => e.key === "Enter" && sendMagicLink()} />
+              {err && <div className="err">{err}</div>}
+              <button className="btn" onClick={sendMagicLink} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+                {busy ? "Sending…" : "Send sign-in link"}
+              </button>
+            </>
+          )
         ) : (
           <>
             <label>Operator email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
-              onKeyDown={(e) => e.key === "Enter" && send()} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <label style={{ marginTop: 12 }}>Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+              onKeyDown={(e) => e.key === "Enter" && signInWithPassword()} />
             {err && <div className="err">{err}</div>}
-            <button className="btn" onClick={send} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
-              {busy ? "Sending…" : "Send sign-in link"}
+            <button className="btn" onClick={signInWithPassword} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+              {busy ? "Signing in…" : "Sign in"}
             </button>
+            <p className="note">No password set yet? Sign in with Magic link once, then set a password from the console.</p>
           </>
         )}
       </div>
@@ -71,14 +105,18 @@ export default function Login() {
         .links .dot { color: var(--muted); }
         .box { padding: 34px; width: 100%; max-width: 380px; }
         .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
-  .logo { width: 34px; height: 34px; border-radius: 8px; }
+        .logo { width: 34px; height: 34px; border-radius: 8px; }
         .brand span { font-weight: 400; }
-        .sub { color: var(--muted); font-size: 13px; margin: 2px 0 22px; }
+        .sub { color: var(--muted); font-size: 13px; margin: 2px 0 22px; text-align: center; }
+        .toggle { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 18px; }
+        .seg { flex: 1; background: #fff; border: none; padding: 9px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+        .seg.on { background: var(--navy); color: #fff; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
         input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 14px; }
         input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
         .ok { color: var(--green); font-size: 14px; line-height: 1.6; }
+        .note { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.5; text-align: center; }
       `}</style>
     </div>
   );

@@ -52,6 +52,7 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -115,9 +116,12 @@ export default function Console() {
         <div className="who">
           <InstallButton />
           <span className="whoEmail">{email}</span>
+          <button className="link" onClick={() => setShowPasswordModal(true)}>Set password</button>
           <button className="link" onClick={signOut}>Sign out</button>
         </div>
       </header>
+
+      {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
 
       <div className="stats">
         <Stat label="Schools" value={schools.length.toString()} />
@@ -1053,6 +1057,69 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 // ---------- Add school ----------
+function SetPasswordModal({ onClose }: { onClose: () => void }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function save() {
+    setErr(null);
+    if (password.length < 8) { setErr("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setErr("Passwords do not match."); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setDone(true);
+  }
+
+  return (
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal card" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <h3>Set / change password</h3>
+          <button className="x" onClick={onClose} type="button">✕</button>
+        </div>
+        {done ? (
+          <>
+            <p className="okMsg">Password set. You can now sign in using email + password from the login page.</p>
+            <button className="btn" type="button" onClick={onClose} style={{ width: "100%", marginTop: 14 }}>Done</button>
+          </>
+        ) : (
+          <>
+            <p className="hint">This sets a password for your operator account, so you can sign in without waiting for a magic link email.</p>
+            <label>New password (min. 8 characters)</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label>Confirm password</label>
+            <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
+            {err && <div className="err">{err}</div>}
+            <div className="mf">
+              <button className="btn ghost" type="button" onClick={onClose}>Cancel</button>
+              <button className="btn ok" type="button" onClick={save} disabled={busy}>{busy ? "Saving…" : "Set password"}</button>
+            </div>
+          </>
+        )}
+        <style jsx>{`
+          .overlay { position: fixed; inset: 0; background: rgba(15,20,32,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 300; backdrop-filter: blur(3px); }
+          .modal { width: 100%; max-width: 400px; padding: 24px; }
+          .mh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+          h3 { font-size: 17px; font-weight: 700; color: var(--ink); }
+          .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; }
+          .hint { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+          label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
+          input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; box-sizing: border-box; }
+          input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+          .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+          .okMsg { color: var(--green); font-size: 14px; line-height: 1.6; }
+          .mf { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
 function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ school_key: "", name: "", contact_person: "", contact_email: "", app_url: "" });
   const [err, setErr] = useState<string | null>(null);
