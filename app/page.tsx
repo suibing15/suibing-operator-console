@@ -157,6 +157,8 @@ export default function Home() {
           <a href="/invoices">Invoices</a>
           <a href="/school-portal">School portal</a>
           <a href="/login">Operator sign-in</a>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/terms">Terms of Service</a>
         </div>
         <div className="footerContact">
           Makwalla Junction, Garko LGA, Kano State, Nigeria<br />
