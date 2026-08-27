@@ -143,6 +143,52 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="guideSection">
+        <div className="sectionHead">
+          <h2>Where do I go?</h2>
+          <p>A quick guide to every part of our site — find what you need in one click.</p>
+        </div>
+        <div className="guideGrid">
+          <a href="#products" className="guideCard" style={{ ["--gc" as any]: "#1B2A4A", ["--gcBg" as any]: "#1B2A4A1F" }}>
+            <div className="guideIcon">🧭</div>
+            <h4>Explore our products</h4>
+            <p>See what SUIBING Bucket, SSMS, SuibingLedger, and more can do for you.</p>
+            <span className="guideGo">Browse products →</span>
+          </a>
+          <a href="/apply" className="guideCard" style={{ ["--gc" as any]: "#0f7a3d", ["--gcBg" as any]: "#0f7a3d1F" }}>
+            <div className="guideIcon">📝</div>
+            <h4>Apply for a service</h4>
+            <p>Ready to get started, or need to update an existing subscription? Apply here.</p>
+            <span className="guideGo">Start application →</span>
+          </a>
+          <a href="/apply/status" className="guideCard" style={{ ["--gc" as any]: "#b7791f", ["--gcBg" as any]: "#b7791f1F" }}>
+            <div className="guideIcon">🔍</div>
+            <h4>Check application status</h4>
+            <p>Already applied? Enter your form number and login ID to see where things stand.</p>
+            <span className="guideGo">Check status →</span>
+          </a>
+          <a href="/invoices" className="guideCard" style={{ ["--gc" as any]: "#2E4372", ["--gcBg" as any]: "#2E43721F" }}>
+            <div className="guideIcon">🧾</div>
+            <h4>Find an invoice</h4>
+            <p>Look up and download invoices issued to your school with your school key and email.</p>
+            <span className="guideGo">Check invoices →</span>
+          </a>
+          <a href="/school-portal" className="guideCard" style={{ ["--gc" as any]: "#c0392b", ["--gcBg" as any]: "#c0392b1F" }}>
+            <div className="guideIcon">🏫</div>
+            <h4>School portal</h4>
+            <p>Already subscribed? Sign in to view invoices, submit payments, and track activity.</p>
+            <span className="guideGo">Sign in →</span>
+          </a>
+          <a href="/careers" className="guideCard" style={{ ["--gc" as any]: "#7c3aed", ["--gcBg" as any]: "#7c3aed1F" }}>
+            <div className="guideIcon">💼</div>
+            <h4>Careers</h4>
+            <p>Interested in joining the team building this software? See open roles.</p>
+            <span className="guideGo">View openings →</span>
+          </a>
+        </div>
+        <p className="guideNote">Still not sure? Use the WhatsApp or email button in the corner — we're happy to point you the right way.</p>
+      </section>
+
       <footer className="footer">
         <div className="footerBrand">
           <img src="/logo.png" alt="" className="footerLogo" />
@@ -255,6 +301,29 @@ const styles = `
   .whyIcon { font-size: 36px; margin-bottom: 14px; }
   .whyCard h4 { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
   .whyCard p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+
+  .guideSection { max-width: 1100px; margin: 0 auto; padding: 20px 24px 60px; }
+  .guideGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 30px; }
+  .guideCard {
+    display: block; text-decoration: none; background: #fff; border: 1px solid var(--line); border-radius: 16px;
+    padding: 24px; position: relative; overflow: hidden;
+    opacity: 0; animation: sbFadeUp 0.5s ease-out forwards;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .guideGrid .guideCard:nth-child(1) { animation-delay: 0.02s; }
+  .guideGrid .guideCard:nth-child(2) { animation-delay: 0.08s; }
+  .guideGrid .guideCard:nth-child(3) { animation-delay: 0.14s; }
+  .guideGrid .guideCard:nth-child(4) { animation-delay: 0.20s; }
+  .guideGrid .guideCard:nth-child(5) { animation-delay: 0.26s; }
+  .guideGrid .guideCard:nth-child(6) { animation-delay: 0.32s; }
+  .guideCard::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--gc); transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease; }
+  .guideCard:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(20,28,45,0.1); border-color: transparent; }
+  .guideCard:hover::before { transform: scaleX(1); }
+  .guideIcon { width: 48px; height: 48px; border-radius: 13px; background: var(--gcBg); color: var(--gc); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 14px; }
+  .guideCard h4 { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .guideCard p { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 14px; }
+  .guideGo { font-size: 13px; font-weight: 700; color: var(--gc); }
+  .guideNote { text-align: center; font-size: 13px; color: var(--muted); margin-top: 32px; }
 
   .footer { background: #101a30; color: rgba(255,255,255,0.75); padding: 48px 24px; }
   .footerBrand { display: flex; align-items: center; gap: 12px; max-width: 1100px; margin: 0 auto 24px; }
