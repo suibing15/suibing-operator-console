@@ -15,6 +15,12 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // MFA challenge step, shown after password succeeds if the account has MFA enabled
+  const [needsMfa, setNeedsMfa] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [useBackupCode, setUseBackupCode] = useState(false);
+
   useEffect(() => {
     if (!loading && sessionEmail && isOperator) {
       router.replace("/console");
@@ -40,8 +46,48 @@ export default function Login() {
     if (!email.trim() || !password) { setErr("Enter your email and password."); return; }
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) { setBusy(false); setErr(error.message); return; }
+
+    // Check whether this account has an active MFA factor requiring step-up.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     setBusy(false);
-    if (error) { setErr(error.message); return; }
+    if (aal?.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = factors?.totp?.find((f) => f.status === "verified");
+      if (totp) {
+        setMfaFactorId(totp.id);
+        setNeedsMfa(true);
+        return;
+      }
+    }
+    router.replace("/console");
+  }
+
+  async function verifyMfaCode() {
+    setErr(null);
+    if (!mfaFactorId) return;
+    if (useBackupCode) {
+      if (!mfaCode.trim()) { setErr("Enter a backup code."); return; }
+      setBusy(true);
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (!uid) { setBusy(false); setErr("Session expired. Please sign in again."); return; }
+      const { data: ok, error } = await supabase.rpc("redeem_mfa_backup_code", { p_user_id: uid, p_code: mfaCode.trim() });
+      setBusy(false);
+      if (error) { setErr(error.message); return; }
+      if (!ok) { setErr("Invalid or already-used backup code."); return; }
+      router.replace("/console");
+      return;
+    }
+    if (mfaCode.trim().length !== 6) { setErr("Enter the 6-digit code from your authenticator app."); return; }
+    setBusy(true);
+    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+    if (chErr) { setBusy(false); setErr(chErr.message); return; }
+    const { error: verErr } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId, challengeId: challenge.id, code: mfaCode.trim(),
+    });
+    setBusy(false);
+    if (verErr) { setErr(verErr.message); return; }
     router.replace("/console");
   }
 
@@ -70,6 +116,29 @@ export default function Login() {
               </button>
             </>
           )
+        ) : needsMfa ? (
+          <>
+            <label>{useBackupCode ? "Backup code" : "6-digit code from your authenticator app"}</label>
+            <input
+              value={mfaCode}
+              onChange={(e) => setMfaCode(useBackupCode ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder={useBackupCode ? "XXXXX-XXXXX" : "000000"}
+              onKeyDown={(e) => e.key === "Enter" && verifyMfaCode()}
+              style={{ textAlign: "center", fontSize: 18, letterSpacing: useBackupCode ? 1 : 4, fontFamily: "monospace" }}
+            />
+            {err && <div className="err">{err}</div>}
+            <button className="btn" onClick={verifyMfaCode} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+              {busy ? "Verifying…" : "Verify & sign in"}
+            </button>
+            <button
+              type="button"
+              className="linkBtn"
+              onClick={() => { setUseBackupCode((v) => !v); setMfaCode(""); setErr(null); }}
+              style={{ marginTop: 12 }}
+            >
+              {useBackupCode ? "Use authenticator app instead" : "Use a backup code instead"}
+            </button>
+          </>
         ) : (
           <>
             <label>Operator email</label>
@@ -117,6 +186,8 @@ export default function Login() {
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
         .ok { color: var(--green); font-size: 14px; line-height: 1.6; }
         .note { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.5; text-align: center; }
+        .linkBtn { display: block; width: 100%; background: none; border: none; color: var(--navy); font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; }
+        .linkBtn:hover { text-decoration: underline; }
       `}</style>
     </div>
   );

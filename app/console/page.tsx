@@ -10,6 +10,7 @@ import InstallButton from "@/app/components/InstallButton";
 import PaymentsQueue from "@/app/components/PaymentsQueue";
 import ProductsManager from "@/app/components/ProductsManager";
 import TestimonialsManager from "@/app/components/TestimonialsManager";
+import MfaSettings from "@/app/components/MfaSettings";
 
 type School = {
   id: string;
@@ -53,6 +54,7 @@ export default function Console() {
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showMfaModal, setShowMfaModal] = useState(false);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -117,11 +119,13 @@ export default function Console() {
           <InstallButton />
           <span className="whoEmail">{email}</span>
           <button className="link" onClick={() => setShowPasswordModal(true)}>Set password</button>
+          <button className="link" onClick={() => setShowMfaModal(true)}>Authenticator</button>
           <button className="link" onClick={signOut}>Sign out</button>
         </div>
       </header>
 
       {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
+      {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
 
       <div className="stats">
         <Stat label="Schools" value={schools.length.toString()} />
