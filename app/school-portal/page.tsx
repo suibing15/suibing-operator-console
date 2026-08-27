@@ -20,7 +20,7 @@ type InvoiceRow = {
 type PaymentRow = {
   id: string; invoice_number: string | null; amount: number | null; payment_date: string | null;
   note: string | null; receipt_data: string; receipt_mimetype: string; receipt_filename: string;
-  status: string; reviewer_note: string | null; created_at: string;
+  status: string; reviewer_note: string | null; receipt_number: string | null; created_at: string;
 };
 
 type ActivityRow = { event: string; detail: string | null; amount: number | null; at: string };
@@ -289,6 +289,25 @@ function PaymentsTab({ session }: { session: Session }) {
   }
   useEffect(() => { loadPayments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function downloadOfficialReceipt(p: PaymentRow, sess: Session) {
+    if (!p.receipt_number) return;
+    const { data } = await supabase.rpc("get_payment_receipt", {
+      p_school_key: sess.schoolKey, p_pin: sess.pin, p_receipt_number: p.receipt_number,
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return;
+    const { generateReceiptPdf } = await import("@/lib/receipt-of-payment");
+    await generateReceiptPdf({
+      receiptNumber: row.receipt_number,
+      schoolName: row.school_name,
+      invoiceNumber: row.invoice_number,
+      amount: row.amount,
+      paymentDate: row.payment_date,
+      note: row.note,
+      confirmedAt: row.confirmed_at,
+    });
+  }
+
   async function submit() {
     setErr(null); setMsg(null);
     if (!file) { setErr("Please attach your payment receipt (image or PDF)."); return; }
@@ -352,7 +371,19 @@ function PaymentsTab({ session }: { session: Session }) {
               {p.amount != null && <div className="rowTotal">NGN {Number(p.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</div>}
               {p.note && <div className="rowNote">{p.note}</div>}
               {p.reviewer_note && <div className="rowNote reviewer"><strong>Note from Suibing:</strong> {p.reviewer_note}</div>}
-              <a className="receiptLink" href={receiptDataUrl(p.receipt_data, p.receipt_mimetype)} target="_blank" rel="noreferrer" download={p.receipt_filename}>View uploaded receipt ↗</a>
+              <div className="receiptRow">
+                <a className="receiptLink" href={receiptDataUrl(p.receipt_data, p.receipt_mimetype)} target="_blank" rel="noreferrer" download={p.receipt_filename}>View my uploaded proof ↗</a>
+                {p.status === "confirmed" && p.receipt_number && (
+                  <button
+                    className="btn ok"
+                    type="button"
+                    onClick={() => downloadOfficialReceipt(p, session)}
+                    style={{ marginTop: 8 }}
+                  >
+                    ⬇ Download official receipt ({p.receipt_number})
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -475,6 +506,7 @@ const dashStyles = `
   .rowNote { font-size: 13px; color: var(--ink-2); margin-top: 8px; line-height: 1.4; }
   .rowNote.reviewer { background: var(--navy-soft); padding: 8px 10px; border-radius: 6px; }
   .receiptLink { display: inline-block; font-size: 13px; color: var(--navy); font-weight: 600; margin-top: 10px; }
+  .receiptRow { display: flex; flex-direction: column; align-items: flex-start; }
   .pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
   .pill.amber { background: #FBF0DC; color: var(--amber); }
   .pill.green { background: var(--green-soft); color: var(--green); }

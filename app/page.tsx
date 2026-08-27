@@ -16,12 +16,29 @@ type Product = {
   apply_product_key: string | null;
 };
 
+type Testimonial = {
+  id: string;
+  school_name: string;
+  quote: string | null;
+  person_name: string | null;
+  media_type: "image" | "video_link";
+  media_path: string | null;
+  media_mimetype: string | null;
+  video_url: string | null;
+};
+
+function testimonialImageUrl(path: string) {
+  return supabase.storage.from("testimonials-media").getPublicUrl(path).data.publicUrl;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [testimonials, setTestimonials] = useState<Testimonial[] | null>(null);
 
   useEffect(() => {
     supabase.rpc("list_active_products").then(({ data }) => setProducts((data as Product[]) ?? []));
+    supabase.rpc("list_active_testimonials").then(({ data }) => setTestimonials((data as Testimonial[]) ?? []));
   }, []);
 
   function applyHref(p: Product) {
@@ -184,6 +201,33 @@ export default function Home() {
         <p className="guideNote">Still not sure? Use the WhatsApp or email button in the corner — we're happy to point you the right way.</p>
       </section>
 
+      {testimonials && testimonials.length > 0 && (
+        <section className="testiSection">
+          <div className="sectionHead">
+            <h2>What schools say</h2>
+            <p>Real feedback from schools using our products.</p>
+          </div>
+          <div className="testiGrid">
+            {testimonials.map((t, i) => (
+              <div key={t.id} className="testiCard" style={{ animationDelay: `${i * 0.08}s` }}>
+                {t.media_type === "image" && t.media_path ? (
+                  <img className="testiImg" src={testimonialImageUrl(t.media_path)} alt={t.school_name} />
+                ) : t.media_type === "video_link" && t.video_url ? (
+                  <a className="testiVideo" href={t.video_url} target="_blank" rel="noreferrer">
+                    <span className="playIcon">▶</span> Watch video
+                  </a>
+                ) : null}
+                {t.quote && <p className="testiQuote">"{t.quote}"</p>}
+                <div className="testiWho">
+                  <div className="testiSchool">{t.school_name}</div>
+                  {t.person_name && <div className="testiPerson">{t.person_name}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <footer className="footer">
         <div className="footerBrand">
           <img src="/logo.png" alt="" className="footerLogo" />
@@ -323,6 +367,22 @@ const styles = `
   .guideCard p { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 14px; }
   .guideGo { font-size: 13px; font-weight: 700; color: var(--gc); }
   .guideNote { text-align: center; font-size: 13px; color: var(--muted); margin-top: 32px; }
+
+  .testiSection { max-width: 1100px; margin: 0 auto; padding: 20px 24px 70px; }
+  .testiGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 30px; }
+  .testiCard {
+    background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    opacity: 0; animation: sbFadeUp 0.5s ease-out forwards;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+  .testiCard:hover { box-shadow: 0 12px 32px rgba(20,28,45,0.1); transform: translateY(-3px); }
+  .testiImg { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+  .testiVideo { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; aspect-ratio: 16/10; background: linear-gradient(135deg, #1B2A4A, #2E4372); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
+  .playIcon { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .testiQuote { font-size: 14px; color: var(--ink-2); line-height: 1.6; font-style: italic; padding: 18px 20px 8px; }
+  .testiWho { padding: 4px 20px 18px; }
+  .testiSchool { font-weight: 700; color: var(--ink); font-size: 14px; }
+  .testiPerson { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
   .footer { background: #101a30; color: rgba(255,255,255,0.75); padding: 48px 24px; }
   .footerBrand { display: flex; align-items: center; gap: 12px; max-width: 1100px; margin: 0 auto 24px; }

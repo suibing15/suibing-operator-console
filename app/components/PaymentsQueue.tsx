@@ -15,6 +15,7 @@ type PaymentSubmission = {
   receipt_data: string;
   receipt_mimetype: string;
   receipt_filename: string;
+  receipt_number: string | null;
   status: "pending" | "confirmed" | "rejected";
   reviewer_note: string | null;
   reviewed_by: string | null;
@@ -57,6 +58,20 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
 
   function receiptUrl(data: string, mimetype: string) {
     return `data:${mimetype};base64,${data}`;
+  }
+
+  async function downloadOfficialReceipt(p: PaymentSubmission, schoolMap: Record<string, string>) {
+    if (!p.receipt_number || !p.reviewed_at) return;
+    const { generateReceiptPdf } = await import("@/lib/receipt-of-payment");
+    await generateReceiptPdf({
+      receiptNumber: p.receipt_number,
+      schoolName: schoolMap[p.school_id] ?? p.school_key,
+      invoiceNumber: p.invoice_number,
+      amount: p.amount ?? 0,
+      paymentDate: p.payment_date ?? p.created_at,
+      note: p.note,
+      confirmedAt: p.reviewed_at,
+    });
   }
 
   async function review(status: "confirmed" | "rejected") {
@@ -130,7 +145,13 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
               <div className="msgBox note"><div className="l">Your review note</div><div>{selected.reviewer_note}</div></div>
             )}
 
-            <a className="receiptBtn" href={receiptUrl(selected.receipt_data, selected.receipt_mimetype)} target="_blank" rel="noreferrer" download={selected.receipt_filename}>📄 View uploaded receipt</a>
+            <a className="receiptBtn" href={receiptUrl(selected.receipt_data, selected.receipt_mimetype)} target="_blank" rel="noreferrer" download={selected.receipt_filename}>📄 View uploaded proof</a>
+
+            {selected.status === "confirmed" && selected.receipt_number && (
+              <button className="receiptBtn ok" type="button" onClick={() => downloadOfficialReceipt(selected, schools)}>
+                ✓ Download official receipt ({selected.receipt_number})
+              </button>
+            )}
 
             {selected.status === "pending" && (
               <div className="actions">
@@ -205,7 +226,8 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
         .msgBox { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
         .msgBox.note { background: var(--navy-soft); border-color: transparent; }
         .l { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-        .receiptBtn { display: block; text-align: center; background: var(--navy); color: #fff; text-decoration: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; margin: 16px 0; }
+        .receiptBtn { display: block; text-align: center; background: var(--navy); color: #fff; text-decoration: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; margin: 16px 0; border: none; width: 100%; cursor: pointer; font-family: inherit; }
+        .receiptBtn.ok { background: var(--green); margin-top: 0; }
         .actions { display: flex; gap: 10px; margin-top: 8px; }
         @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
         .actions .btn { flex: 1; }

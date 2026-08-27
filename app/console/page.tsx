@@ -9,6 +9,7 @@ import JobPostings from "@/app/components/JobPostings";
 import InstallButton from "@/app/components/InstallButton";
 import PaymentsQueue from "@/app/components/PaymentsQueue";
 import ProductsManager from "@/app/components/ProductsManager";
+import TestimonialsManager from "@/app/components/TestimonialsManager";
 
 type School = {
   id: string;
@@ -51,7 +52,7 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products">("schools");
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
@@ -139,6 +140,7 @@ export default function Console() {
             Payments{pendingPayments > 0 ? <span className="dot">{pendingPayments}</span> : null}
           </button>
           <button className={tab === "products" ? "tab on" : "tab"} onClick={() => setTab("products")}>Showcase</button>
+          <button className={tab === "testimonials" ? "tab on" : "tab"} onClick={() => setTab("testimonials")}>Testimonials</button>
         </div>
       </div>
 
@@ -191,6 +193,7 @@ export default function Console() {
       {tab === "postings" && <JobPostings />}
       {tab === "payments" && email && <PaymentsQueue operatorEmail={email} />}
       {tab === "products" && <ProductsManager />}
+      {tab === "testimonials" && <TestimonialsManager />}
 
       {selected && (
         <SchoolDrawer
