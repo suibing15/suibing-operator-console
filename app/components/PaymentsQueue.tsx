@@ -92,13 +92,13 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
               <tr><td colSpan={7} className="empty">Nothing here.</td></tr>
             ) : visible.map((p) => (
               <tr key={p.id} onClick={() => setSelected(p)}>
-                <td>{schools[p.school_id] ?? p.school_key}</td>
-                <td className="mono">{p.invoice_number ?? "—"}</td>
-                <td>{p.amount != null ? `NGN ${Number(p.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}` : "—"}</td>
-                <td>{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-GB") : "—"}</td>
-                <td><span className={`badge ${p.status}`}>{p.status}</span></td>
-                <td>{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r"><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(p); }}>Review</button></td>
+                <td data-label="School">{schools[p.school_id] ?? p.school_key}</td>
+                <td className="mono" data-label="Invoice">{p.invoice_number ?? "—"}</td>
+                <td data-label="Amount">{p.amount != null ? `NGN ${Number(p.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}` : "—"}</td>
+                <td data-label="Date">{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-GB") : "—"}</td>
+                <td data-label="Status"><span className={`badge ${p.status}`}>{p.status}</span></td>
+                <td data-label="Submitted">{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
+                <td className="r" data-label=""><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(p); }}>Review</button></td>
               </tr>
             ))}
           </tbody>
@@ -168,6 +168,17 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .table-wrap { overflow-x: auto; }
+        @media (max-width: 640px) {
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; cursor: pointer; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r { justify-content: flex-end; }
+          td.empty { display: block; text-align: center; }
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -196,6 +207,7 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
         .l { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
         .receiptBtn { display: block; text-align: center; background: var(--navy); color: #fff; text-decoration: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; margin: 16px 0; }
         .actions { display: flex; gap: 10px; margin-top: 8px; }
+        @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
         .actions .btn { flex: 1; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
         textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; font-family: inherit; resize: vertical; }

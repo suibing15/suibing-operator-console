@@ -118,13 +118,13 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
               <tr><td colSpan={7} className="empty">Nothing here.</td></tr>
             ) : visible.map((p) => (
               <tr key={p.id}>
-                <td className="mono">{p.form_number}</td>
-                <td><button className="name" onClick={() => setSelected(p)}>{p.org_name}</button></td>
-                <td>{p.request_type === "new" ? "New" : "Update"}</td>
-                <td>{p.product}</td>
-                <td><StatusBadge status={p.status} /></td>
-                <td>{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r"><button className="mini" onClick={() => setSelected(p)}>Review</button></td>
+                <td className="mono" data-label="Form #">{p.form_number}</td>
+                <td data-label="Organisation"><button className="name" onClick={() => setSelected(p)}>{p.org_name}</button></td>
+                <td data-label="Type">{p.request_type === "new" ? "New" : "Update"}</td>
+                <td data-label="Product">{p.product}</td>
+                <td data-label="Status"><StatusBadge status={p.status} /></td>
+                <td data-label="Submitted">{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
+                <td className="r" data-label=""><button className="mini" onClick={() => setSelected(p)}>Review</button></td>
               </tr>
             ))}
           </tbody>
@@ -160,6 +160,17 @@ export default function ProspectsQueue({ operatorEmail }: { operatorEmail: strin
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .table-wrap { overflow-x: auto; }
+        @media (max-width: 640px) {
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r { justify-content: flex-end; }
+          td.empty { display: block; text-align: center; }
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -276,6 +287,7 @@ function ProspectDrawer({ p, schools, busy, onClose, onApprove, onReject, onCorr
         input, select { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; background: #fff; }
         .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
         .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
       `}</style>
     </div>
   );

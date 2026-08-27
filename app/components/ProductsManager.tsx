@@ -78,18 +78,18 @@ export default function ProductsManager() {
               <tr><td colSpan={5} className="empty">No products yet. Click "Add product".</td></tr>
             ) : products.map((p, i) => (
               <tr key={p.id}>
-                <td className="iconCell" style={{ color: p.color_hex }}>{p.icon_emoji}</td>
-                <td>
+                <td className="iconCell" style={{ color: p.color_hex }} data-label="">{p.icon_emoji}</td>
+                <td data-label="Product">
                   <div className="pname">{p.name}</div>
                   <div className="ptag">{p.tagline}</div>
                 </td>
-                <td className="cat">{p.category}</td>
-                <td>
+                <td className="cat" data-label="Category">{p.category}</td>
+                <td data-label="Visible">
                   <button className={`pill ${p.is_active ? "on" : "off"}`} onClick={() => toggleActive(p)}>
                     {p.is_active ? "Visible" : "Hidden"}
                   </button>
                 </td>
-                <td className="r actions">
+                <td className="r actions" data-label="">
                   <button className="iconBtn" disabled={i === 0} onClick={() => move(p, -1)} title="Move up">↑</button>
                   <button className="iconBtn" disabled={i === products.length - 1} onClick={() => move(p, 1)} title="Move down">↓</button>
                   <button className="mini" onClick={() => setEditing(p)}>Edit</button>
@@ -118,6 +118,17 @@ export default function ProductsManager() {
         h2 { font-size: 18px; font-weight: 700; color: var(--ink); }
         .hint { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
         .table-wrap { overflow-x: auto; }
+        @media (max-width: 640px) {
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r.actions { justify-content: flex-end; flex-wrap: wrap; }
+          td.empty { display: block; text-align: center; }
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }

@@ -40,13 +40,13 @@ export default function JobPostings() {
               <tr><td colSpan={4} className="empty">No postings yet.</td></tr>
             ) : rows.map((p) => (
               <tr key={p.id}>
-                <td>
+                <td data-label="Title">
                   <div className="title">{p.title}</div>
                   {p.description && <div className="desc">{p.description}</div>}
                 </td>
-                <td><span className={`badge ${p.is_open ? "on" : "off"}`}>{p.is_open ? "Open" : "Closed"}</span></td>
-                <td>{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r">
+                <td data-label="Visible on /careers"><span className={`badge ${p.is_open ? "on" : "off"}`}>{p.is_open ? "Open" : "Closed"}</span></td>
+                <td data-label="Created">{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
+                <td className="r" data-label="">
                   <button className={`mini ${p.is_open ? "danger" : "ok"}`} disabled={busy} onClick={() => toggle(p)}>
                     {p.is_open ? "Close" : "Open"}
                   </button>
@@ -63,6 +63,17 @@ export default function JobPostings() {
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
         h2 { font-size: 18px; font-weight: 700; color: var(--ink); }
         .table-wrap { overflow-x: auto; }
+        @media (max-width: 640px) {
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r { justify-content: flex-end; }
+          td.empty { display: block; text-align: center; }
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -102,7 +113,7 @@ function AddPosting({ onClose, onDone }: { onClose: () => void; onDone: () => vo
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
         <div className="mh"><h3>New job posting</h3><button className="x" onClick={onClose}>✕</button></div>
         <label>Job title</label>

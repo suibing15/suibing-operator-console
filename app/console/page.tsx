@@ -110,8 +110,12 @@ export default function Console() {
   return (
     <div className="shell">
       <header className="top">
-        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span> · Operator Console</div>
-        <div className="who"><InstallButton /> {email} <button className="link" onClick={signOut}>Sign out</button></div>
+        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" /><span className="brandText">SUIBING <em>Bucket</em></span></div>
+        <div className="who">
+          <InstallButton />
+          <span className="whoEmail">{email}</span>
+          <button className="link" onClick={signOut}>Sign out</button>
+        </div>
       </header>
 
       <div className="stats">
@@ -121,19 +125,21 @@ export default function Console() {
         <Stat label="Total students" value={totalStudents.toLocaleString()} />
       </div>
 
-      <div className="tabs">
-        <button className={tab === "schools" ? "tab on" : "tab"} onClick={() => setTab("schools")}>Schools</button>
-        <button className={tab === "prospects" ? "tab on" : "tab"} onClick={() => setTab("prospects")}>
-          Prospects{pendingProspects > 0 ? <span className="dot">{pendingProspects}</span> : null}
-        </button>
-        <button className={tab === "jobs" ? "tab on" : "tab"} onClick={() => setTab("jobs")}>
-          Job applicants{pendingApplicants > 0 ? <span className="dot">{pendingApplicants}</span> : null}
-        </button>
-        <button className={tab === "postings" ? "tab on" : "tab"} onClick={() => setTab("postings")}>Job postings</button>
-        <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>
-          Payments{pendingPayments > 0 ? <span className="dot">{pendingPayments}</span> : null}
-        </button>
-        <button className={tab === "products" ? "tab on" : "tab"} onClick={() => setTab("products")}>Showcase</button>
+      <div className="tabsWrap">
+        <div className="tabs">
+          <button className={tab === "schools" ? "tab on" : "tab"} onClick={() => setTab("schools")}>Schools</button>
+          <button className={tab === "prospects" ? "tab on" : "tab"} onClick={() => setTab("prospects")}>
+            Prospects{pendingProspects > 0 ? <span className="dot">{pendingProspects}</span> : null}
+          </button>
+          <button className={tab === "jobs" ? "tab on" : "tab"} onClick={() => setTab("jobs")}>
+            Job applicants{pendingApplicants > 0 ? <span className="dot">{pendingApplicants}</span> : null}
+          </button>
+          <button className={tab === "postings" ? "tab on" : "tab"} onClick={() => setTab("postings")}>Job postings</button>
+          <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>
+            Payments{pendingPayments > 0 ? <span className="dot">{pendingPayments}</span> : null}
+          </button>
+          <button className={tab === "products" ? "tab on" : "tab"} onClick={() => setTab("products")}>Showcase</button>
+        </div>
       </div>
 
       {tab === "schools" && (
@@ -155,17 +161,17 @@ export default function Console() {
                   const od = s.paid_until && new Date(s.paid_until) < new Date();
                   return (
                     <tr key={s.id}>
-                      <td>
+                      <td data-label="School">
                         <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
                         <div className="key">{s.school_key}</div>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`badge ${s.status}`}>{s.status}</span>
                       </td>
-                      <td className="r tab-nums">{s.students_count}</td>
-                      <td className="r tab-nums">{s.records_count}</td>
-                      <td className={od ? "overdue" : ""}>{fmtDate(s.paid_until)}{od && " ⚠"}</td>
-                      <td className="r">
+                      <td className="r tab-nums" data-label="Students">{s.students_count}</td>
+                      <td className="r tab-nums" data-label="Records">{s.records_count}</td>
+                      <td className={od ? "overdue" : ""} data-label="Paid until">{fmtDate(s.paid_until)}{od && " ⚠"}</td>
+                      <td className="r" data-label="">
                         <button className={`mini ${s.status === "active" ? "danger" : "ok"}`} onClick={() => toggleStatus(s)} disabled={busy}>
                           {s.status === "active" ? "Disable" : "Enable"}
                         </button>
@@ -199,20 +205,37 @@ export default function Console() {
       )}
 
       <style jsx>{`
-        .shell { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
-        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
-        .brand { font-size: 18px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 10px; }
-        .logo { width: 30px; height: 30px; border-radius: 7px; }
-        .brand span { font-weight: 400; }
-        .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
-        .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; margin-left: 8px; }
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
-        .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
-        .tab { position: relative; background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+        .shell { max-width: 1080px; margin: 0 auto; padding: 16px 16px 80px; }
+        .top {
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line);
+          position: sticky; top: 0; background: var(--paper-2); z-index: 40;
+          padding-top: 4px; gap: 10px;
+        }
+        .brand { font-size: 16px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .logo { width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0; }
+        .brandText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .brandText em { font-weight: 400; font-style: normal; }
+        .who { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .whoEmail { display: none; }
+        .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; padding: 0; }
+
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+
+        .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+
+        .tabsWrap { margin: 0 -16px 18px; padding: 0 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+        .tabsWrap::-webkit-scrollbar { display: none; }
+        .tabs { display: flex; gap: 2px; width: max-content; }
+        .tab {
+          position: relative; background: none; border: none; padding: 10px 14px; font-size: 13.5px;
+          font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+          margin-bottom: -1px; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+        }
         .tab.on { color: var(--navy); border-bottom-color: var(--navy); }
-        .tab .dot { background: var(--red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
-        h2 { font-size: 18px; font-weight: 700; color: var(--ink); }
+        .tab .dot { background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; }
+
+        h2 { font-size: 17px; font-weight: 700; color: var(--ink); }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); }
@@ -229,7 +252,25 @@ export default function Console() {
         .mini { border: 1px solid var(--line-strong); background: #fff; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 6px; color: var(--ink-2); }
         .mini.danger { color: var(--red); border-color: var(--red); }
         .mini.ok { color: var(--green); border-color: var(--green); }
-        @media (max-width: 720px) { .stats { grid-template-columns: 1fr 1fr; } }
+
+        @media (max-width: 640px) {
+          .shell { padding: 12px 12px 90px; }
+          .brand { font-size: 14.5px; }
+          .brandText { max-width: 140px; }
+          .who { gap: 6px; }
+          .stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+          h2 { font-size: 16px; }
+          /* Turn the schools table into stacked cards on small screens */
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r { justify-content: flex-end; flex-wrap: wrap; }
+          td.empty { display: block; text-align: center; }
+        }
       `}</style>
     </div>
   );
@@ -244,6 +285,11 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "wa
         .s { padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
         .l { font-size: 12px; color: var(--muted); }
         .v { font-size: 26px; font-weight: 700; }
+        @media (max-width: 640px) {
+          .s { padding: 12px 14px; }
+          .l { font-size: 11px; }
+          .v { font-size: 20px; }
+        }
       `}</style>
     </div>
   );
@@ -477,6 +523,7 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
         .at { font-size: 12px; color: var(--muted); }
         .det { font-size: 13px; color: var(--ink-2); margin-top: 5px; }
         @media (max-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } .pay-row { grid-template-columns: 1fr; } }
+        @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
       `}</style>
     </div>
   );

@@ -116,17 +116,17 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
               <tr><td colSpan={6} className="empty">No applicants in this view.</td></tr>
             ) : visible.map((a) => (
               <tr key={a.id} onClick={() => setSelected(a)}>
-                <td className="mono">{a.form_number}</td>
-                <td>
+                <td className="mono" data-label="Form #">{a.form_number}</td>
+                <td data-label="Applicant">
                   <div className="nameCell">
                     <div className="avatarSm">{a.full_name.slice(0, 1).toUpperCase()}</div>
                     <span className="name">{a.full_name}</span>
                   </div>
                 </td>
-                <td>{a.job_title_snap ?? "—"}</td>
-                <td><StatusBadge status={a.status} /></td>
-                <td>{new Date(a.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r"><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(a); }}>Review</button></td>
+                <td data-label="Position">{a.job_title_snap ?? "—"}</td>
+                <td data-label="Status"><StatusBadge status={a.status} /></td>
+                <td data-label="Submitted">{new Date(a.created_at).toLocaleDateString("en-GB")}</td>
+                <td className="r" data-label=""><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(a); }}>Review</button></td>
               </tr>
             ))}
           </tbody>
@@ -164,6 +164,17 @@ export default function JobsQueue({ operatorEmail }: { operatorEmail: string }) 
         .chip:hover { border-color: var(--navy); color: var(--navy); }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .table-wrap { overflow-x: auto; }
+        @media (max-width: 640px) {
+          table, thead, tbody, th, td, tr { display: block; }
+          thead { display: none; }
+          .table-wrap { overflow-x: visible; }
+          tr { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 10px; padding: 12px 14px; cursor: pointer; }
+          td { border-bottom: none; padding: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+          td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex-shrink: 0; }
+          td[data-label=""]::before { display: none; }
+          td.r { justify-content: flex-end; }
+          td.empty { display: block; text-align: center; }
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
         td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -374,6 +385,7 @@ function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onD
         .offerSummary strong { font-size: 13px; color: var(--ink); }
         .hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.4; }
         .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
       `}</style>
     </div>
   );
