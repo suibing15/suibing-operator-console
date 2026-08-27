@@ -909,6 +909,7 @@ const SCHEDULE_OPTIONS: { key: string; label: string }[] = [
   { key: "bucket", label: "SUIBING Bucket" },
   { key: "ssms", label: "SSMS" },
   { key: "e_examiner", label: "E-Examiner Contract" },
+  { key: "e_reportsheet", label: "E-Reportsheet" },
   { key: "ledger", label: "SuibingLedger" },
   { key: "custom", label: "Custom / Bespoke Development" },
 ];

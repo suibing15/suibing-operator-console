@@ -8,6 +8,7 @@ const PRODUCTS = [
   { value: "ssms", label: "SSMS (school management + CBT)" },
   { value: "ledger", label: "SuibingLedger (fees, admission, report sheets)" },
   { value: "e_examiner", label: "E-Examiner Contract" },
+  { value: "e_reportsheet", label: "E-Reportsheet (combined, print-ready report sheets)" },
   { value: "tracker", label: "Tracker (personal expense tracking)" },
   { value: "website", label: "Website development" },
   { value: "app", label: "App development for business" },

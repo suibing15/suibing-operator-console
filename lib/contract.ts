@@ -10,12 +10,13 @@ const BLUE = "2E75B6";
 const GREY = "595959";
 const FONT = "Arial";
 
-export type ScheduleKey = "bucket" | "ssms" | "e_examiner" | "ledger" | "custom";
+export type ScheduleKey = "bucket" | "ssms" | "e_examiner" | "e_reportsheet" | "ledger" | "custom";
 
 export const SCHEDULE_LABELS: Record<ScheduleKey, string> = {
   bucket: "SUIBING Bucket",
   ssms: "Suibing School Management Software (SSMS)",
   e_examiner: "E-Examiner Contract",
+  e_reportsheet: "E-Reportsheet",
   ledger: "SuibingLedger",
   custom: "Custom / Bespoke Development Services",
 };
@@ -172,6 +173,17 @@ function scheduleLedger(): Paragraph[] {
     clause("E1.3", "Teacher-to-Class Security: each teacher account is assigned to specific class(es); access to student and assessment data is restricted according to that assignment."),
   ];
 }
+function scheduleEReportsheet(): Paragraph[] {
+  return [
+    pageBreak(),
+    h1("Schedule — E-Reportsheet"),
+    clause("G1.1", "Under E-Reportsheet, Suibing registers the Client's students and sets up their classes within the system."),
+    clause("G1.2", "Suibing grants the Client's teachers secure access to manually enter student scores and to upload their signatures for use on generated report sheets."),
+    clause("G1.3", "The system automatically generates a single, combined report sheet per student, with positions (class rank) calculated automatically from entered scores."),
+    clause("G1.4", "Report sheets produced under this Schedule are print-ready on generation; the Client is responsible for printing and distribution."),
+    clause("G1.5", "Feature Additions, Persistent Storage, and End-of-Term Data Handling terms mirror those set out for SSMS above, unless varied in writing between the Parties."),
+  ];
+}
 function scheduleCustom(): Paragraph[] {
   return [
     pageBreak(),
@@ -186,6 +198,7 @@ const SCHEDULE_BUILDERS: Record<ScheduleKey, (r: ContractRequest) => Paragraph[]
   bucket: (r) => scheduleBucket(r.subscriptionFee, r.subscriptionPeriod),
   ssms: () => scheduleSSMS(),
   e_examiner: () => scheduleEExaminer(),
+  e_reportsheet: () => scheduleEReportsheet(),
   ledger: () => scheduleLedger(),
   custom: () => scheduleCustom(),
 };
