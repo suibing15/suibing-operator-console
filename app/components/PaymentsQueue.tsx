@@ -12,7 +12,9 @@ type PaymentSubmission = {
   amount: number | null;
   payment_date: string | null;
   note: string | null;
-  receipt_path: string;
+  receipt_data: string;
+  receipt_mimetype: string;
+  receipt_filename: string;
   status: "pending" | "confirmed" | "rejected";
   reviewer_note: string | null;
   reviewed_by: string | null;
@@ -53,8 +55,8 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
   const visible = filter === "all" ? rows : rows.filter((r) => r.status === filter);
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
-  function receiptUrl(path: string) {
-    return supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+  function receiptUrl(data: string, mimetype: string) {
+    return `data:${mimetype};base64,${data}`;
   }
 
   async function review(status: "confirmed" | "rejected") {
@@ -128,7 +130,7 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
               <div className="msgBox note"><div className="l">Your review note</div><div>{selected.reviewer_note}</div></div>
             )}
 
-            <a className="receiptBtn" href={receiptUrl(selected.receipt_path)} target="_blank" rel="noreferrer">📄 View uploaded receipt</a>
+            <a className="receiptBtn" href={receiptUrl(selected.receipt_data, selected.receipt_mimetype)} target="_blank" rel="noreferrer" download={selected.receipt_filename}>📄 View uploaded receipt</a>
 
             {selected.status === "pending" && (
               <div className="actions">

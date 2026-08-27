@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { uploadReceipt, receiptPublicUrl } from "@/lib/receipts";
+import { fileToBase64, receiptDataUrl } from "@/lib/receipts";
 
 type Session = { schoolKey: string; pin: string; name: string };
 
@@ -19,7 +19,8 @@ type InvoiceRow = {
 
 type PaymentRow = {
   id: string; invoice_number: string | null; amount: number | null; payment_date: string | null;
-  note: string | null; receipt_path: string; status: string; reviewer_note: string | null; created_at: string;
+  note: string | null; receipt_data: string; receipt_mimetype: string; receipt_filename: string;
+  status: string; reviewer_note: string | null; created_at: string;
 };
 
 type ActivityRow = { event: string; detail: string | null; amount: number | null; at: string };
@@ -294,12 +295,12 @@ function PaymentsTab({ session }: { session: Session }) {
     if (!amount.trim() || parseFloat(amount) <= 0) { setErr("Enter a valid amount."); return; }
     setBusy(true);
     try {
-      const path = await uploadReceipt(session.schoolKey, file);
+      const { data, mimetype, filename } = await fileToBase64(file);
       const { error } = await supabase.rpc("submit_payment", {
         p_school_key: session.schoolKey, p_pin: session.pin,
         p_invoice_number: invoiceNumber.trim() || null,
         p_amount: parseFloat(amount), p_payment_date: paymentDate, p_note: note.trim() || null,
-        p_receipt_path: path,
+        p_receipt_data: data, p_receipt_mimetype: mimetype, p_receipt_filename: filename,
       });
       if (error) throw new Error(error.message);
       setMsg("Payment submitted for review. We'll confirm it shortly.");
@@ -351,7 +352,7 @@ function PaymentsTab({ session }: { session: Session }) {
               {p.amount != null && <div className="rowTotal">NGN {Number(p.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</div>}
               {p.note && <div className="rowNote">{p.note}</div>}
               {p.reviewer_note && <div className="rowNote reviewer"><strong>Note from Suibing:</strong> {p.reviewer_note}</div>}
-              <a className="receiptLink" href={receiptPublicUrl(p.receipt_path)} target="_blank" rel="noreferrer">View uploaded receipt ↗</a>
+              <a className="receiptLink" href={receiptDataUrl(p.receipt_data, p.receipt_mimetype)} target="_blank" rel="noreferrer" download={p.receipt_filename}>View uploaded receipt ↗</a>
             </div>
           ))}
         </div>
