@@ -170,7 +170,7 @@ export default function Home() {
 const styles = `
   .home { background: var(--paper-2); overflow-x: hidden; }
 
-  .hero { position: relative; background: linear-gradient(160deg, #1B2A4A 0%, #14213d 55%, #0d1830 100%); color: #fff; overflow: hidden; padding-bottom: 80px; }
+  .hero { position: relative; background: linear-gradient(160deg, #1B2A4A 0%, #14213d 55%, #0d1830 100%); color: #fff; overflow: hidden; padding-bottom: 140px; }
   .heroBg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
   .blob { position: absolute; border-radius: 50%; filter: blur(2px); opacity: 0.5; }
   .b1 { width: 380px; height: 380px; background: radial-gradient(circle, rgba(46,211,166,0.25), transparent 70%); top: -140px; right: -80px; animation: sbFloat 10s ease-in-out infinite; }
@@ -197,7 +197,7 @@ const styles = `
 
   @media (max-width: 640px) { h1 { font-size: 32px; } .heroContent { margin-top: 40px; } }
 
-  .productsSection { max-width: 1100px; margin: -50px auto 0; padding: 0 24px 70px; position: relative; }
+  .productsSection { max-width: 1100px; margin: -30px auto 0; padding: 0 24px 70px; position: relative; }
   .sectionHead { text-align: center; margin-bottom: 40px; }
   .sectionHead h2 { font-size: 28px; font-weight: 800; color: var(--ink); margin-bottom: 10px; letter-spacing: -0.01em; }
   .sectionHead p { font-size: 15px; color: var(--muted); max-width: 480px; margin: 0 auto; line-height: 1.5; }
