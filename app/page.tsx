@@ -7,6 +7,7 @@ import ProspectsQueue from "@/app/components/ProspectsQueue";
 import JobsQueue from "@/app/components/JobsQueue";
 import JobPostings from "@/app/components/JobPostings";
 import InstallButton from "@/app/components/InstallButton";
+import PaymentsQueue from "@/app/components/PaymentsQueue";
 
 type School = {
   id: string;
@@ -49,9 +50,10 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings">("schools");
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState(0);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("schools").select("*").order("name");
@@ -67,8 +69,10 @@ export default function Console() {
     async function loadCounts() {
       const { count: pc } = await supabase.from("prospects").select("id", { count: "exact", head: true }).eq("status", "pending");
       const { count: jc } = await supabase.from("job_applicants").select("id", { count: "exact", head: true }).eq("status", "pending");
+      const { count: payc } = await supabase.from("payment_submissions").select("id", { count: "exact", head: true }).eq("status", "pending");
       setPendingProspects(pc ?? 0);
       setPendingApplicants(jc ?? 0);
+      setPendingPayments(payc ?? 0);
     }
     loadCounts();
   }, [isOperator, tab]);
@@ -125,6 +129,9 @@ export default function Console() {
           Job applicants{pendingApplicants > 0 ? <span className="dot">{pendingApplicants}</span> : null}
         </button>
         <button className={tab === "postings" ? "tab on" : "tab"} onClick={() => setTab("postings")}>Job postings</button>
+        <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>
+          Payments{pendingPayments > 0 ? <span className="dot">{pendingPayments}</span> : null}
+        </button>
       </div>
 
       {tab === "schools" && (
@@ -174,6 +181,7 @@ export default function Console() {
       {tab === "prospects" && email && <ProspectsQueue operatorEmail={email} />}
       {tab === "jobs" && email && <JobsQueue operatorEmail={email} />}
       {tab === "postings" && <JobPostings />}
+      {tab === "payments" && email && <PaymentsQueue operatorEmail={email} />}
 
       {selected && (
         <SchoolDrawer
