@@ -41,11 +41,15 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
   const [reasonFor, setReasonFor] = useState<"confirmed" | "rejected" | null>(null);
   const [reason, setReason] = useState("");
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from("payment_submissions").select("*").order("created_at", { ascending: false });
+    setLoadError(null);
+    const { data, error } = await supabase.from("payment_submissions").select("*").order("created_at", { ascending: false });
+    if (error) { setLoadError(error.message); setRows([]); return; }
     setRows((data as PaymentSubmission[]) ?? []);
-    const { data: sc } = await supabase.from("schools").select("id,name");
+    const { data: sc, error: scErr } = await supabase.from("schools").select("id,name");
+    if (scErr) { setLoadError(scErr.message); return; }
     const map: Record<string, string> = {};
     (sc as SchoolLite[] ?? []).forEach((s) => { map[s.id] = s.name; });
     setSchools(map);
@@ -96,6 +100,8 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
           </button>
         ))}
       </div>
+
+      {loadError && <div className="loadErr">Could not load payments: {loadError}</div>}
 
       <div className="card table-wrap">
         <table>
@@ -186,6 +192,7 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
 
       <style jsx>{`
         .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .loadErr { background: var(--red-soft); color: var(--red); padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13.5px; margin-bottom: 14px; line-height: 1.5; }
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .table-wrap { overflow-x: auto; }
