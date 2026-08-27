@@ -82,9 +82,9 @@ export default function InvoiceStatus() {
             <h1 className="anim-2">Your invoices, whenever you need them.</h1>
             <p className="tagline anim-3">Look up and download any invoice issued to your school — registration, subscription renewals, or custom work.</p>
             <ul className="points anim-4">
-              <li><span className="dot" />No password to remember — just your school key and email</li>
-              <li><span className="dot" />Every invoice is a properly branded PDF</li>
-              <li><span className="dot" />Questions? Contact us directly, details below</li>
+              <li><span className="dot">🔑</span>No password to remember — just your school key and email</li>
+              <li><span className="dot">📄</span>Every invoice is a properly branded PDF</li>
+              <li><span className="dot">💬</span>Questions? Contact us directly, details below</li>
             </ul>
             <div className="corpline anim-5">
               SUIBING LIMITED (RC 9801555)<br />
@@ -160,7 +160,7 @@ const styles = `
   .tagline { font-size: 15px; color: rgba(255,255,255,0.78); line-height: 1.6; margin-bottom: 32px; }
   .points { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 48px; }
   .points li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: rgba(255,255,255,0.88); line-height: 1.5; }
-  .points .dot { width: 6px; height: 6px; border-radius: 50%; background: #6DD3A8; margin-top: 7px; flex-shrink: 0; }
+  .points .dot { font-size: 15px; line-height: 1; flex-shrink: 0; }
   .corpline { font-size: 11.5px; color: rgba(255,255,255,0.5); line-height: 1.6; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.12); }
 
   .anim-1, .anim-2, .anim-3, .anim-4, .anim-5 { opacity: 0; animation: sbFadeUp 0.6s ease-out forwards; }
