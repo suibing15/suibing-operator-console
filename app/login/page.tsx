@@ -48,6 +48,8 @@ export default function Login() {
         <a href="/careers">Careers</a>
         <span className="dot">·</span>
         <a href="/invoices">Check invoices</a>
+        <span className="dot">·</span>
+        <a href="/school-portal">School portal</a>
       </div>
       <style jsx>{`
         .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; }
