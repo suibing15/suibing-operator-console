@@ -87,29 +87,32 @@ export default function Console() {
     loadCounts();
   }, [isOperator, tab]);
 
-  // MFA enforcement: if this account has a verified authenticator factor,
-  // the session must be at aal2 to be here. A session that only completed
-  // password auth (aal1) is not allowed into the console — this closes the
-  // gap where visiting /console directly could otherwise skip the MFA step.
+  // MFA awareness (informational only — never blocks access). A broken or
+  // partially-completed enrollment must never be able to lock the operator
+  // out of the console, so this only powers a banner suggesting they check
+  // their authenticator settings; it does not gate the page.
   useEffect(() => {
     if (!isOperator) { setMfaCheckDone(true); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (cancelled) return;
-      const hasMfa = data?.currentLevel !== data?.nextLevel || data?.nextLevel === "aal2";
-      const incomplete = data?.nextLevel === "aal2" && data?.currentLevel !== "aal2";
-      setMfaIncomplete(!!incomplete);
-      setMfaCheckDone(true);
+      try {
+        const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (cancelled) return;
+        const incomplete = data?.nextLevel === "aal2" && data?.currentLevel !== "aal2";
+        setMfaIncomplete(!!incomplete);
+      } catch {
+        // If the check itself fails for any reason, don't let that block access.
+      } finally {
+        if (!cancelled) setMfaCheckDone(true);
+      }
     })();
     return () => { cancelled = true; };
   }, [isOperator]);
 
-  if (loading || (isOperator && !mfaCheckDone)) return <Center>Loading…</Center>;
+  if (loading) return <Center>Loading…</Center>;
   if (!isConfigured) return <Center>Console not configured. Set Supabase environment variables.</Center>;
   if (!email) return <Redirect />;
   if (!isOperator) return <Center>This account is not an operator. <button className="btn ghost" onClick={signOut} style={{ marginLeft: 12 }}>Sign out</button></Center>;
-  if (mfaIncomplete) return <Redirect />;
 
   const active = schools.filter((s) => s.status === "active").length;
   const overdue = schools.filter((s) => s.paid_until && new Date(s.paid_until) < new Date()).length;
@@ -188,6 +191,15 @@ export default function Console() {
         {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
         {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
         {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
+
+        {mfaCheckDone && mfaIncomplete && (
+          <div className="mfaBanner">
+            Your authenticator app setup looks incomplete — you may want to check it under{" "}
+            <button className="bannerLink" onClick={() => setShowMfaModal(true)}>Authenticator</button>{" "}
+            in the sidebar. This does not block your access.
+            <button className="bannerClose" onClick={() => setMfaIncomplete(false)}>✕</button>
+          </div>
+        )}
 
         <div className="stats">
           <Stat label="Schools" value={schools.length.toString()} />
@@ -304,6 +316,9 @@ export default function Console() {
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+        .mfaBanner { position: relative; background: #FBF0DC; color: #92650f; border-radius: 10px; padding: 12px 40px 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+        .bannerLink { background: none; border: none; color: #92650f; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
+        .bannerClose { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #92650f; cursor: pointer; font-size: 13px; }
 
         h2 { font-size: 17px; font-weight: 700; color: var(--ink); }
         .table-wrap { overflow-x: auto; }
