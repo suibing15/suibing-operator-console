@@ -12,6 +12,7 @@ import ProductsManager from "@/app/components/ProductsManager";
 import TestimonialsManager from "@/app/components/TestimonialsManager";
 import MfaSettings from "@/app/components/MfaSettings";
 import CompanySettings from "@/app/components/CompanySettings";
+import FactoryReset from "@/app/components/FactoryReset";
 
 type School = {
   id: string;
@@ -57,6 +58,7 @@ export default function Console() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showMfaModal, setShowMfaModal] = useState(false);
   const [showCompanySettings, setShowCompanySettings] = useState(false);
+  const [showFactoryReset, setShowFactoryReset] = useState(false);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -175,6 +177,7 @@ export default function Console() {
             <button className="sideLink" onClick={() => setShowPasswordModal(true)}>Set password</button>
             <button className="sideLink" onClick={() => setShowMfaModal(true)}>Authenticator</button>
             <button className="sideLink" onClick={() => setShowCompanySettings(true)}>Company settings</button>
+            <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => setShowFactoryReset(true)}>Factory reset</button>
             <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
         </div>
@@ -191,6 +194,7 @@ export default function Console() {
         {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
         {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
         {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
+        {showFactoryReset && <FactoryReset operatorEmail={email} onClose={() => { setShowFactoryReset(false); load(); }} />}
 
         {mfaCheckDone && mfaIncomplete && (
           <div className="mfaBanner">
@@ -836,9 +840,30 @@ function DangerZone({ school, operatorEmail, onDeleted }: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [exported, setExported] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function doExport() {
+    setErr(null);
+    setExporting(true);
+    const { data, error } = await supabase.rpc("export_school_data", { p_school_id: school.id });
+    setExporting(false);
+    if (error) { setErr(error.message); return; }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${school.school_key}_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setExported(true);
+  }
 
   async function doDelete() {
     setErr(null);
+    if (!exported) { setErr("Download a backup first — the button above."); return; }
     if (confirmText.trim() !== school.name) { setErr("Type the exact school name to confirm."); return; }
     setBusy(true);
     const { error } = await supabase.rpc("delete_school", { p_school_id: school.id, p_by: operatorEmail });
@@ -854,11 +879,16 @@ function DangerZone({ school, operatorEmail, onDeleted }: {
       </button>
       {open && (
         <div className="body">
-          <p>Permanently delete "{school.name}" and all of its invoices. This cannot be undone. Activity log history is kept for your records but will no longer reference this school by name.</p>
-          <label>Type the school name to confirm: <strong>{school.name}</strong></label>
-          <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+          <p>Permanently delete "{school.name}" and all of its invoices and payment records. This cannot be undone. Activity log history is kept for your records but will no longer reference this school by name.</p>
+
+          <button className="btn ghost" type="button" onClick={doExport} disabled={exporting} style={{ width: "100%" }}>
+            {exporting ? "Preparing backup…" : exported ? "✓ Backup downloaded — download again" : "1. Download a backup first (required)"}
+          </button>
+
+          <label style={{ marginTop: 14 }}>2. Type the school name to confirm: <strong>{school.name}</strong></label>
+          <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} disabled={!exported} />
           {err && <div className="err">{err}</div>}
-          <button className="btn danger" type="button" onClick={doDelete} disabled={busy || confirmText.trim() !== school.name} style={{ width: "100%", marginTop: 10 }}>
+          <button className="btn danger" type="button" onClick={doDelete} disabled={busy || !exported || confirmText.trim() !== school.name} style={{ width: "100%", marginTop: 10 }}>
             {busy ? "Deleting…" : "Permanently delete this school"}
           </button>
         </div>
@@ -870,6 +900,7 @@ function DangerZone({ school, operatorEmail, onDeleted }: {
         .body p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 12px; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
         input { width: 100%; border: 1px solid var(--red-soft); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; background: #fff; box-sizing: border-box; }
+        input:disabled { background: var(--paper-2); cursor: not-allowed; }
         input:focus { outline: none; border-color: var(--red); }
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
       `}</style>

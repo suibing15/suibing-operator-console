@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fileToBase64, receiptDataUrl } from "@/lib/receipts";
+import WhatsAppButton from "@/app/components/WhatsAppButton";
 
 type Session = { schoolKey: string; pin: string; name: string };
 
@@ -139,6 +140,7 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
           </div>
         </main>
       </div>
+      <WhatsAppButton />
       <style jsx>{styles}</style>
     </div>
   );
@@ -223,6 +225,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
       {tab === "payments" && <PaymentsTab session={session} />}
       {tab === "activity" && <ActivityTab session={session} />}
 
+      <WhatsAppButton />
       <style jsx>{dashStyles}</style>
     </div>
   );
