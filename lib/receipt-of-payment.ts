@@ -1,4 +1,5 @@
 import { BRAND, drawLetterhead, drawFooter } from "./branding";
+import { supabase } from "./supabaseClient";
 
 export type ReceiptDetails = {
   receiptNumber: string;
@@ -15,12 +16,23 @@ function fmtMoney(n: number, currency: string) {
   return `${currency} ${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+async function loadSignature(): Promise<string | null> {
+  try {
+    const { data } = await supabase.rpc("get_company_settings");
+    const row = Array.isArray(data) ? data[0] : data;
+    return row?.signature_data ? `data:${row.signature_mimetype || "image/jpeg"};base64,${row.signature_data}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateReceiptPdf(d: ReceiptDetails) {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const { navy, ink2, green } = { ...BRAND, green: [15, 122, 61] as [number, number, number] };
   const currency = d.currency || "NGN";
+  const signatureDataUrl = await loadSignature();
 
   let y = drawLetterhead(doc, "RECEIPT OF PAYMENT", `Ref: ${d.receiptNumber}`);
 
@@ -89,6 +101,18 @@ export async function generateReceiptPdf(d: ReceiptDetails) {
   doc.setTextColor(...ink2);
   doc.text("Thank you for your payment.", 18, y);
   y += 14;
+
+  // Authorised signature block
+  if (signatureDataUrl) {
+    try {
+      doc.addImage(signatureDataUrl, "JPEG", 18, y, 40, 20);
+      y += 22;
+    } catch {
+      y += 4;
+    }
+  } else {
+    y += 4;
+  }
   doc.setDrawColor(...ink2);
   doc.line(18, y, 78, y);
   y += 5;

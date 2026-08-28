@@ -11,6 +11,7 @@ import PaymentsQueue from "@/app/components/PaymentsQueue";
 import ProductsManager from "@/app/components/ProductsManager";
 import TestimonialsManager from "@/app/components/TestimonialsManager";
 import MfaSettings from "@/app/components/MfaSettings";
+import CompanySettings from "@/app/components/CompanySettings";
 
 type School = {
   id: string;
@@ -55,6 +56,7 @@ export default function Console() {
   const [showAdd, setShowAdd] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showMfaModal, setShowMfaModal] = useState(false);
+  const [showCompanySettings, setShowCompanySettings] = useState(false);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -120,12 +122,14 @@ export default function Console() {
           <span className="whoEmail">{email}</span>
           <button className="link" onClick={() => setShowPasswordModal(true)}>Set password</button>
           <button className="link" onClick={() => setShowMfaModal(true)}>Authenticator</button>
+          <button className="link" onClick={() => setShowCompanySettings(true)}>Company settings</button>
           <button className="link" onClick={signOut}>Sign out</button>
         </div>
       </header>
 
       {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
       {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
+      {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
 
       <div className="stats">
         <Stat label="Schools" value={schools.length.toString()} />
@@ -835,6 +839,7 @@ function InvoiceBox({ school, operatorEmail, onIssued }: { school: School; opera
     await generateInvoicePdf({
       invoiceNumber: row.out_invoice_number,
       schoolName: school.name,
+      schoolKey: school.school_key,
       currency: "NGN",
       lineItems: cleanItems.map((c: any) => ({ description: c.description, qty: c.qty, unitPrice: c.unit_price })),
       subtotal: row.out_total,

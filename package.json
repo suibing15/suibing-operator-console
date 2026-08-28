@@ -14,12 +14,14 @@
     "@supabase/supabase-js": "^2.45.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
-    "docx": "^9.0.2"
+    "docx": "^9.0.2",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
-    "@types/react-dom": "^18"
+    "@types/react-dom": "^18",
+    "@types/qrcode": "^1.5.5"
   }
 }

@@ -3,12 +3,29 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle,
   PageBreak, Header, Footer, PageNumber, VerticalAlign, ImageRun,
 } from "docx";
+import { createClient } from "@supabase/supabase-js";
 import { LOGO_PNG_BASE64 } from "./branding";
 
 const NAVY = "1F3864";
 const BLUE = "2E75B6";
 const GREY = "595959";
 const FONT = "Arial";
+
+async function loadSignatureBuffer(): Promise<Buffer | null> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return null;
+    const client = createClient(url, key);
+    const { data, error } = await client.rpc("get_company_settings");
+    if (error) return null;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.signature_data) return null;
+    return Buffer.from(row.signature_data, "base64");
+  } catch {
+    return null;
+  }
+}
 
 export type ScheduleKey = "bucket" | "ssms" | "e_examiner" | "e_reportsheet" | "ledger" | "custom";
 
@@ -82,14 +99,23 @@ function logoBuffer(): Buffer {
   const base64 = LOGO_PNG_BASE64.split(",")[1] ?? LOGO_PNG_BASE64;
   return Buffer.from(base64, "base64");
 }
-function signBlock(roleTitle: string) {
-  return [
-    new Paragraph({ spacing: { before: 400, after: 40 }, children: [new TextRun({ text: "_".repeat(35), size: 22, font: FONT })] }),
+function signBlock(roleTitle: string, signatureBuffer?: Buffer | null) {
+  const children: Paragraph[] = [];
+  if (signatureBuffer) {
+    children.push(new Paragraph({
+      spacing: { before: 400, after: 40 },
+      children: [new ImageRun({ data: signatureBuffer, transformation: { width: 130, height: 55 }, type: "jpg" })],
+    }));
+  } else {
+    children.push(new Paragraph({ spacing: { before: 400, after: 40 }, children: [new TextRun({ text: "_".repeat(35), size: 22, font: FONT })] }));
+  }
+  children.push(
     new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Signature", size: 20, font: FONT, color: GREY })] }),
     new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Name: " + "_".repeat(30), size: 22, font: FONT })] }),
     new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Title: " + roleTitle, size: 22, font: FONT })] }),
     new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Date: " + "_".repeat(30), size: 22, font: FONT })] }),
-  ];
+  );
+  return children;
 }
 
 function docHeader() {
@@ -206,6 +232,7 @@ const SCHEDULE_BUILDERS: Record<ScheduleKey, (r: ContractRequest) => Paragraph[]
 export async function generateContractDocx(req: ContractRequest): Promise<Buffer> {
   const scheduleParagraphs = req.schedules.flatMap((s) => SCHEDULE_BUILDERS[s](req));
   const scheduleNames = req.schedules.map((s) => SCHEDULE_LABELS[s]).join(", ");
+  const signatureBuffer = await loadSignatureBuffer();
 
   const doc = new Document({
     styles: { default: { document: { run: { font: FONT, size: 22 } } } },
@@ -292,7 +319,7 @@ export async function generateContractDocx(req: ContractRequest): Promise<Buffer
           h1("Signatures"),
           body("The Parties, by their authorised representatives, have executed this Agreement as of the Effective Date above."),
           new Paragraph({ spacing: { before: 300 }, children: [new TextRun({ text: "For and on behalf of SUIBING LIMITED (trading as Suibing IT Services):", bold: true, size: 22, font: FONT })] }),
-          ...signBlock("Director"),
+          ...signBlock("Director", signatureBuffer),
           new Paragraph({ spacing: { before: 500 }, children: [new TextRun({ text: `For and on behalf of ${req.clientName}:`, bold: true, size: 22, font: FONT })] }),
           ...signBlock("Authorised Representative"),
         ],

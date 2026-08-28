@@ -1,10 +1,13 @@
 import { BRAND, drawLetterhead, drawFooter } from "./branding";
+import { generatePaymentQrDataUrl, PAYMENT_DETAILS_FALLBACK, BankDetails } from "./paymentQr";
+import { supabase } from "./supabaseClient";
 
 export type InvoiceLineItem = { description: string; qty: number; unitPrice: number };
 
 export type InvoiceDetails = {
   invoiceNumber: string;
   schoolName: string;
+  schoolKey?: string;
   currency: string;
   lineItems: InvoiceLineItem[];
   subtotal: number;
@@ -17,12 +20,31 @@ function fmtMoney(n: number, currency: string) {
   return `${currency} ${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+async function loadCompanySettings(): Promise<{
+  bank: BankDetails; signatureDataUrl: string | null;
+}> {
+  try {
+    const { data } = await supabase.rpc("get_company_settings");
+    const row = Array.isArray(data) ? data[0] : data;
+    const bank: BankDetails = row
+      ? { bankName: row.bank_name, accountName: row.account_name, accountNumber: row.account_number }
+      : PAYMENT_DETAILS_FALLBACK;
+    const signatureDataUrl = row?.signature_data
+      ? `data:${row.signature_mimetype || "image/jpeg"};base64,${row.signature_data}`
+      : null;
+    return { bank, signatureDataUrl };
+  } catch {
+    return { bank: PAYMENT_DETAILS_FALLBACK, signatureDataUrl: null };
+  }
+}
+
 export async function generateInvoicePdf(d: InvoiceDetails) {
   const { default: jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const { navy, ink2, muted } = BRAND;
+  const { bank, signatureDataUrl } = await loadCompanySettings();
 
   let y = drawLetterhead(doc, "INVOICE", `Ref: ${d.invoiceNumber}`);
 
@@ -70,26 +92,49 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   y = (doc as any).lastAutoTable.finalY + 10;
 
   const rowTop = y;
+  const boxH = 42;
 
   // Bank details box, left-aligned
-  const bankW = 84;
+  const bankW = 62;
   doc.setDrawColor(224, 228, 236);
   doc.setFillColor(246, 248, 251);
-  doc.roundedRect(18, rowTop, bankW, 30, 2, 2, "F");
+  doc.roundedRect(18, rowTop, bankW, boxH, 2, 2, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...navy);
-  doc.text("Payment Details", 24, rowTop + 8);
+  doc.text("Payment Details", 23, rowTop + 8);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(...ink2);
-  doc.text("Bank Name:", 24, rowTop + 14.5);
-  doc.text("OPay", 60, rowTop + 14.5);
-  doc.text("Account Name:", 24, rowTop + 19.5);
-  const nameLines = doc.splitTextToSize("Sulaiman Ibrahim Inuwa", 22);
-  doc.text(nameLines, 60, rowTop + 19.5);
-  doc.text("Account Number:", 24, rowTop + 25.5);
-  doc.text("7080195042", 60, rowTop + 25.5);
+  doc.text("Bank:", 23, rowTop + 14.5);
+  doc.text(bank.bankName, 23, rowTop + 18.5);
+  doc.text("Account Name:", 23, rowTop + 24.5);
+  const nameLines = doc.splitTextToSize(bank.accountName, bankW - 10);
+  doc.text(nameLines, 23, rowTop + 28.5);
+  doc.text("Account Number:", 23, rowTop + 36.5);
+  doc.setFont("helvetica", "bold");
+  doc.text(bank.accountNumber, 23, rowTop + 40.5);
+
+  // Payment QR code, centre
+  const qrX = 18 + bankW + 6;
+  const qrSize = boxH;
+  try {
+    const qrDataUrl = await generatePaymentQrDataUrl(bank, {
+      amount: d.total,
+      reference: d.invoiceNumber,
+      schoolKey: d.schoolKey || d.schoolName,
+    });
+    doc.setDrawColor(224, 228, 236);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(qrX, rowTop, qrSize, qrSize, 2, 2, "FD");
+    doc.addImage(qrDataUrl, "PNG", qrX + 3, rowTop + 3, qrSize - 6, qrSize - 12);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...muted);
+    doc.text("Scan with your bank app", qrX + qrSize / 2, rowTop + qrSize - 4, { align: "center" });
+  } catch {
+    // If QR generation fails for any reason, the invoice still renders correctly without it.
+  }
 
   // Totals box, right-aligned
   const boxW = 76;
@@ -108,7 +153,7 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   doc.text("Total", boxX + 6, rowTop + 16);
   doc.text(fmtMoney(d.total, d.currency), boxX + boxW - 6, rowTop + 16, { align: "right" });
 
-  y = rowTop + 40;
+  y = rowTop + boxH + 10;
 
   if (d.notes?.trim()) {
     doc.setFont("helvetica", "bold");
@@ -123,6 +168,26 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
     doc.text(lines, 18, y);
     y += lines.length * 5;
   }
+
+  // Authorised signature block
+  y += 10;
+  if (signatureDataUrl) {
+    try {
+      doc.addImage(signatureDataUrl, "JPEG", 18, y, 40, 20);
+      y += 22;
+    } catch {
+      y += 4;
+    }
+  } else {
+    y += 4;
+  }
+  doc.setDrawColor(...ink2);
+  doc.line(18, y, 68, y);
+  y += 5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...navy);
+  doc.text("For SUIBING LIMITED, trading as Suibing IT Services", 18, y);
 
   drawFooter(doc, "Page 1 of 1");
   doc.save(`${d.invoiceNumber}_${d.schoolName.replace(/\s+/g, "_")}.pdf`);
