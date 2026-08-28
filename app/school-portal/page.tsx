@@ -178,7 +178,7 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
 }
 
 function PortalDashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "account">("invoices");
+  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account">("invoices");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -250,12 +250,14 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
         <button className={tab === "invoices" ? "tab on" : "tab"} onClick={() => setTab("invoices")}>Invoices</button>
         <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>Submit Payment</button>
         <button className={tab === "activity" ? "tab on" : "tab"} onClick={() => setTab("activity")}>Activity</button>
+        <button className={tab === "complaints" ? "tab on" : "tab"} onClick={() => setTab("complaints")}>Support</button>
         <button className={tab === "account" ? "tab on" : "tab"} onClick={() => setTab("account")}>Account</button>
       </div>
 
       {tab === "invoices" && <InvoicesTab session={session} />}
       {tab === "payments" && <PaymentsTab session={session} />}
       {tab === "activity" && <ActivityTab session={session} />}
+      {tab === "complaints" && <ComplaintsTab session={session} />}
       {tab === "account" && <AccountTab session={session} />}
 
       <WhatsAppButton />
@@ -534,6 +536,144 @@ const styles = `
   .dot2 { color: var(--muted); }
 `;
 
+type ComplaintRow = { id: string; subject: string; status: string; created_at: string; updated_at: string; message_count: number };
+type ComplaintMessage = { id: string; sender: "school" | "operator"; body: string; created_at: string };
+
+function ComplaintsTab({ session }: { session: Session }) {
+  const [complaints, setComplaints] = useState<ComplaintRow[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showNew, setShowNew] = useState(false);
+
+  async function load() {
+    const { data } = await supabase.rpc("list_school_complaints", { p_school_key: session.schoolKey, p_pin: session.pin });
+    setComplaints((data as ComplaintRow[]) ?? []);
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (openId) {
+    return <ComplaintThread session={session} complaintId={openId} onBack={() => { setOpenId(null); load(); }} />;
+  }
+
+  return (
+    <div className="tabPanel">
+      <div className="filterRow" style={{ justifyContent: "space-between" }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>Support & complaints</h3>
+        <button className="btn ok" onClick={() => setShowNew(true)}>New complaint</button>
+      </div>
+      {showNew && <NewComplaintForm session={session} onClose={() => setShowNew(false)} onSubmitted={(id) => { setShowNew(false); load(); setOpenId(id); }} />}
+      {complaints === null ? (
+        <p className="muted">Loading…</p>
+      ) : complaints.length === 0 ? (
+        <p className="muted">No complaints submitted yet. If something isn't working right, let us know using "New complaint" above.</p>
+      ) : (
+        <div className="cardList">
+          {complaints.map((c) => (
+            <div key={c.id} className="rowCard" style={{ cursor: "pointer" }} onClick={() => setOpenId(c.id)}>
+              <div className="rowTop">
+                <div>
+                  <div className="rowTitle">{c.subject}</div>
+                  <div className="rowSub">{c.message_count} message{c.message_count !== 1 ? "s" : ""} · Updated {new Date(c.updated_at).toLocaleDateString("en-GB")}</div>
+                </div>
+                <span className={`pill ${c.status === "open" ? "amber" : "green"}`}>{c.status === "open" ? "Open" : "Resolved"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NewComplaintForm({ session, onClose, onSubmitted }: { session: Session; onClose: () => void; onSubmitted: (id: string) => void }) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit() {
+    setErr(null);
+    if (!subject.trim() || !message.trim()) { setErr("Enter a subject and describe the issue."); return; }
+    setBusy(true);
+    const { data, error } = await supabase.rpc("submit_complaint", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_subject: subject.trim(), p_message: message.trim(),
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    onSubmitted(data as string);
+  }
+
+  return (
+    <div className="formBox card" style={{ marginBottom: 16 }}>
+      <h3>New complaint</h3>
+      <label>Subject</label>
+      <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Invoice amount looks wrong" />
+      <label>Describe the issue</label>
+      <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
+      {err && <div className="err">{err}</div>}
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <button className="btn ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
+        <button className="btn ok" onClick={submit} disabled={busy} style={{ flex: 1 }}>{busy ? "Sending…" : "Submit"}</button>
+      </div>
+    </div>
+  );
+}
+
+function ComplaintThread({ session, complaintId, onBack }: { session: Session; complaintId: string; onBack: () => void }) {
+  const [messages, setMessages] = useState<ComplaintMessage[] | null>(null);
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function load() {
+    const { data } = await supabase.rpc("get_complaint_thread", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_complaint_id: complaintId,
+    });
+    setMessages((data as ComplaintMessage[]) ?? []);
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function sendReply() {
+    setErr(null);
+    if (!reply.trim()) { setErr("Enter a message."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("reply_to_complaint_as_school", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_complaint_id: complaintId, p_message: reply.trim(),
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setReply("");
+    load();
+  }
+
+  return (
+    <div className="tabPanel">
+      <button className="btn ghost small" onClick={onBack} style={{ marginBottom: 14 }}>← Back to all complaints</button>
+      <div className="threadBox card">
+        {messages === null ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <div className="threadList">
+            {messages.map((m) => (
+              <div key={m.id} className={`bubble ${m.sender === "school" ? "mine" : "theirs"}`}>
+                <div className="bubbleSender">{m.sender === "school" ? "You" : "Suibing IT Services"}</div>
+                <div className="bubbleBody">{m.body}</div>
+                <div className="bubbleTime">{new Date(m.created_at).toLocaleString("en-GB")}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="replyBox">
+          <textarea rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type a reply…" />
+          {err && <div className="err">{err}</div>}
+          <button className="btn ok" onClick={sendReply} disabled={busy} style={{ width: "100%", marginTop: 8 }}>
+            {busy ? "Sending…" : "Send reply"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AccountTab({ session }: { session: Session }) {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -579,6 +719,16 @@ function AccountTab({ session }: { session: Session }) {
 }
 
 const dashStyles = `
+  .threadBox { padding: 18px; }
+  .threadList { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; margin-bottom: 16px; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; }
+  .bubble.mine { align-self: flex-end; background: var(--navy); color: #fff; }
+  .bubble.theirs { align-self: flex-start; background: var(--paper-2); color: var(--ink); }
+  .bubbleSender { font-size: 10.5px; font-weight: 700; text-transform: uppercase; opacity: 0.7; margin-bottom: 3px; }
+  .bubbleBody { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+  .bubbleTime { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+  .replyBox { border-top: 1px solid var(--line); padding-top: 14px; }
+  .replyBox textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; resize: vertical; box-sizing: border-box; }
   .dashWrap { min-height: 100vh; background: var(--paper-2); padding: 24px; }
   .loadingMsg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
   .linkBtn { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; margin-left: 4px; }

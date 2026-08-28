@@ -13,6 +13,7 @@ import TestimonialsManager from "@/app/components/TestimonialsManager";
 import MfaSettings from "@/app/components/MfaSettings";
 import CompanySettings from "@/app/components/CompanySettings";
 import FactoryReset from "@/app/components/FactoryReset";
+import ComplaintsQueue from "@/app/components/ComplaintsQueue";
 
 type School = {
   id: string;
@@ -56,11 +57,12 @@ export default function Console() {
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | null>(null);
-  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [pendingPinResets, setPendingPinResets] = useState(0);
+  const [openComplaints, setOpenComplaints] = useState(0);
   const [mfaCheckDone, setMfaCheckDone] = useState(false);
   const [mfaIncomplete, setMfaIncomplete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,10 +83,12 @@ export default function Console() {
       const { count: jc } = await supabase.from("job_applicants").select("id", { count: "exact", head: true }).eq("status", "pending");
       const { count: payc } = await supabase.from("payment_submissions").select("id", { count: "exact", head: true }).eq("status", "pending");
       const { count: pinc } = await supabase.from("pin_reset_requests").select("id", { count: "exact", head: true }).eq("status", "pending");
+      const { count: cc } = await supabase.from("complaints").select("id", { count: "exact", head: true }).eq("status", "open");
       setPendingProspects(pc ?? 0);
       setPendingApplicants(jc ?? 0);
       setPendingPayments(payc ?? 0);
       setPendingPinResets(pinc ?? 0);
+      setOpenComplaints(cc ?? 0);
     }
     loadCounts();
   }, [isOperator, tab]);
@@ -148,6 +152,7 @@ export default function Console() {
     { key: "payments", label: "Payments", icon: "💳", badge: pendingPayments },
     { key: "products", label: "Showcase", icon: "🗂️" },
     { key: "testimonials", label: "Testimonials", icon: "💬" },
+    { key: "complaints", label: "Support", icon: "🎫", badge: openComplaints },
   ];
 
   return (
@@ -174,10 +179,10 @@ export default function Console() {
           <InstallButton />
           <div className="accountBox">
             <div className="accountEmail">{email}</div>
-            <button className="sideLink" onClick={() => setAccountModal("password")}>Set password</button>
-            <button className="sideLink" onClick={() => setAccountModal("mfa")}>Authenticator</button>
-            <button className="sideLink" onClick={() => setAccountModal("settings")}>Company settings</button>
-            <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => setAccountModal("reset")}>Factory reset</button>
+            <button className="sideLink" onClick={() => { setAccountModal("password"); setSidebarOpen(false); }}>Set password</button>
+            <button className="sideLink" onClick={() => { setAccountModal("mfa"); setSidebarOpen(false); }}>Authenticator</button>
+            <button className="sideLink" onClick={() => { setAccountModal("settings"); setSidebarOpen(false); }}>Company settings</button>
+            <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => { setAccountModal("reset"); setSidebarOpen(false); }}>Factory reset</button>
             <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
         </div>
@@ -260,6 +265,7 @@ export default function Console() {
       {tab === "payments" && email && <PaymentsQueue operatorEmail={email} />}
       {tab === "products" && <ProductsManager />}
       {tab === "testimonials" && <TestimonialsManager />}
+      {tab === "complaints" && email && <ComplaintsQueue operatorEmail={email} />}
 
       </div>
 
