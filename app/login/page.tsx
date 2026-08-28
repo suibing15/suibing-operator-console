@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
@@ -15,14 +15,20 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // MFA challenge step, shown after password succeeds if the account has MFA enabled
+  // MFA challenge step, shown after password succeeds if the account has MFA enabled.
+  // mfaPendingRef is a ref (not state) so it updates synchronously, before any
+  // React re-render — this closes a real race condition where Supabase's own
+  // onAuthStateChange listener could flip isOperator to true and let the
+  // redirect effect fire in the gap before the setNeedsMfa(true) state update
+  // had actually been committed, letting the login silently skip the MFA step.
+  const mfaPendingRef = useRef(false);
   const [needsMfa, setNeedsMfa] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [useBackupCode, setUseBackupCode] = useState(false);
 
   useEffect(() => {
-    if (needsMfa) return; // don't auto-redirect while an MFA challenge is pending
+    if (mfaPendingRef.current || needsMfa) return; // don't auto-redirect while an MFA challenge is pending
     if (!loading && sessionEmail && isOperator) {
       router.replace("/console");
     }
@@ -46,8 +52,15 @@ export default function Login() {
     if (!isConfigured) { setErr("Console not configured. Set environment variables."); return; }
     if (!email.trim() || !password) { setErr("Enter your email and password."); return; }
     setBusy(true);
+
+    // Set this BEFORE calling signInWithPassword — the moment that call
+    // resolves, Supabase's onAuthStateChange listener fires independently
+    // and can race ahead of our own state updates below. The ref blocks the
+    // redirect effect immediately and synchronously, with no gap.
+    mfaPendingRef.current = true;
+
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) { setBusy(false); setErr(error.message); return; }
+    if (error) { setBusy(false); mfaPendingRef.current = false; setErr(error.message); return; }
 
     // Force a fresh read of the session before checking MFA status — the
     // client's internal auth state can lag a beat behind the signIn call
@@ -57,16 +70,17 @@ export default function Login() {
     // Check whether this account has an active MFA factor requiring step-up.
     const { data: aal, error: aalErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     setBusy(false);
-    if (aalErr) { setErr(aalErr.message); return; }
+    if (aalErr) { mfaPendingRef.current = false; setErr(aalErr.message); return; }
     if (aal?.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
       const { data: factors } = await supabase.auth.mfa.listFactors();
       const totp = factors?.totp?.find((f) => f.status === "verified");
       if (totp) {
         setMfaFactorId(totp.id);
         setNeedsMfa(true);
-        return;
+        return; // mfaPendingRef stays true until verifyMfaCode succeeds
       }
     }
+    mfaPendingRef.current = false;
     router.replace("/console");
   }
 
@@ -83,6 +97,7 @@ export default function Login() {
       setBusy(false);
       if (error) { setErr(error.message); return; }
       if (!ok) { setErr("Invalid or already-used backup code."); return; }
+      mfaPendingRef.current = false;
       router.replace("/console");
       return;
     }
@@ -95,6 +110,7 @@ export default function Login() {
     });
     setBusy(false);
     if (verErr) { setErr(verErr.message); return; }
+    mfaPendingRef.current = false;
     router.replace("/console");
   }
 

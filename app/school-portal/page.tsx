@@ -8,6 +8,7 @@ type Session = { schoolKey: string; pin: string; name: string };
 type Profile = {
   school_id: string; name: string; school_key: string; status: string;
   blocked_reason: string | null; portal_warning: string | null; plan: string; paid_until: string | null;
+  students_count: number; records_count: number; counts_updated: string | null;
 };
 
 type InvoiceRow = {
@@ -193,6 +194,25 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
         </div>
       )}
 
+      <div className="statsStrip">
+        <div className="statCard">
+          <span className="statLabel">Students tracked</span>
+          <span className="statValue">{profile.students_count.toLocaleString()}</span>
+        </div>
+        <div className="statCard">
+          <span className="statLabel">Records on file</span>
+          <span className="statValue">{profile.records_count.toLocaleString()}</span>
+        </div>
+        <div className="statCard statUpdated">
+          <span className="statLabel">Last updated</span>
+          <span className="statValueSmall">
+            {profile.counts_updated
+              ? new Date(profile.counts_updated).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+              : "Not yet updated"}
+          </span>
+        </div>
+      </div>
+
       <div className="tabs">
         <button className={tab === "invoices" ? "tab on" : "tab"} onClick={() => setTab("invoices")}>Invoices</button>
         <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>Submit Payment</button>
@@ -226,6 +246,7 @@ function InvoicesTab({ session }: { session: Session }) {
     await generateInvoicePdf({
       invoiceNumber: inv.invoice_number,
       schoolName: session.name,
+      schoolKey: session.schoolKey,
       currency: inv.currency,
       lineItems: inv.line_items.map((li) => ({ description: li.description, qty: li.qty, unitPrice: li.unit_price })),
       subtotal: inv.subtotal,
@@ -487,6 +508,13 @@ const dashStyles = `
   .warningBanner { max-width: 900px; margin: 0 auto 16px; background: #FBF0DC; border-radius: var(--radius-sm); padding: 16px 18px; }
   .warningBanner strong { color: var(--amber); font-size: 14px; display: block; margin-bottom: 6px; }
   .warningBanner p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 10px; }
+  .statsStrip { max-width: 900px; margin: 0 auto 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .statCard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .statLabel { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+  .statValue { font-size: 24px; font-weight: 800; color: var(--navy); }
+  .statValueSmall { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .statCard.statUpdated { background: var(--paper-2); }
+  @media (max-width: 560px) { .statsStrip { grid-template-columns: 1fr; } }
   .tabs { max-width: 900px; margin: 0 auto 20px; display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
   .tab { background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab.on { color: var(--navy); border-bottom-color: var(--navy); }
