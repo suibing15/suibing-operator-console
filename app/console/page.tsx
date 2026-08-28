@@ -60,6 +60,7 @@ export default function Console() {
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
+  const [pendingPinResets, setPendingPinResets] = useState(0);
   const [mfaCheckDone, setMfaCheckDone] = useState(false);
   const [mfaIncomplete, setMfaIncomplete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -79,9 +80,11 @@ export default function Console() {
       const { count: pc } = await supabase.from("prospects").select("id", { count: "exact", head: true }).eq("status", "pending");
       const { count: jc } = await supabase.from("job_applicants").select("id", { count: "exact", head: true }).eq("status", "pending");
       const { count: payc } = await supabase.from("payment_submissions").select("id", { count: "exact", head: true }).eq("status", "pending");
+      const { count: pinc } = await supabase.from("pin_reset_requests").select("id", { count: "exact", head: true }).eq("status", "pending");
       setPendingProspects(pc ?? 0);
       setPendingApplicants(jc ?? 0);
       setPendingPayments(payc ?? 0);
+      setPendingPinResets(pinc ?? 0);
     }
     loadCounts();
   }, [isOperator, tab]);
@@ -138,7 +141,7 @@ export default function Console() {
   }
 
   const NAV_ITEMS: { key: typeof tab; label: string; icon: string; badge?: number }[] = [
-    { key: "schools", label: "Schools", icon: "🏫" },
+    { key: "schools", label: "Schools", icon: "🏫", badge: pendingPinResets },
     { key: "prospects", label: "Prospects", icon: "📋", badge: pendingProspects },
     { key: "jobs", label: "Job applicants", icon: "👤", badge: pendingApplicants },
     { key: "postings", label: "Job postings", icon: "📌" },
@@ -188,11 +191,6 @@ export default function Console() {
           <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
         </header>
 
-        {accountModal === "password" && <SetPasswordModal onClose={() => setAccountModal(null)} />}
-        {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
-        {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
-        {accountModal === "reset" && <FactoryReset operatorEmail={email} onClose={() => { setAccountModal(null); load(); }} />}
-
         {mfaCheckDone && mfaIncomplete && (
           <div className="mfaBanner">
             Your authenticator app setup looks incomplete — you may want to check it under{" "}
@@ -211,6 +209,9 @@ export default function Console() {
 
         {tab === "schools" && (
           <>
+            {pendingPinResets > 0 && (
+              <PinResetBanner operatorEmail={email!} onResolved={() => setPendingPinResets((n) => Math.max(0, n - 1))} onOpenSchool={(s) => setSelected(s)} schools={schools} />
+            )}
             <div className="bar">
               <h2>Registered schools</h2>
               <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
@@ -261,6 +262,11 @@ export default function Console() {
       {tab === "testimonials" && <TestimonialsManager />}
 
       </div>
+
+      {accountModal === "password" && <SetPasswordModal onClose={() => setAccountModal(null)} />}
+      {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
+      {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
+      {accountModal === "reset" && <FactoryReset operatorEmail={email} onClose={() => { setAccountModal(null); load(); }} />}
 
       {selected && (
         <SchoolDrawer
@@ -368,6 +374,74 @@ export default function Console() {
           td.r { justify-content: flex-end; flex-wrap: wrap; }
           td.empty { display: block; text-align: center; }
         }
+      `}</style>
+    </div>
+  );
+}
+
+function PinResetBanner({ operatorEmail, onResolved, onOpenSchool, schools }: {
+  operatorEmail: string; onResolved: () => void; onOpenSchool: (s: School) => void; schools: School[];
+}) {
+  const [requests, setRequests] = useState<{ id: string; school_id: string; school_key: string; note: string | null; created_at: string }[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function load() {
+    const { data } = await supabase
+      .from("pin_reset_requests")
+      .select("id, school_id, school_key, note, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setRequests(data ?? []);
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function resolve(id: string) {
+    setBusyId(id);
+    const { error } = await supabase.rpc("resolve_pin_reset_request", { p_id: id, p_by: operatorEmail });
+    setBusyId(null);
+    if (!error) {
+      onResolved();
+      load();
+    }
+  }
+
+  if (requests.length === 0) return null;
+
+  return (
+    <div className="pinBanner">
+      <div className="pinHead">🔑 {requests.length} PIN reset request{requests.length > 1 ? "s" : ""}</div>
+      <div className="pinList">
+        {requests.map((r) => {
+          const school = schools.find((s) => s.id === r.school_id);
+          return (
+            <div key={r.id} className="pinRow">
+              <div className="pinInfo">
+                <strong>{school?.name ?? r.school_key}</strong>
+                <span className="pinWhen">{new Date(r.created_at).toLocaleString("en-GB")}</span>
+                {r.note && <span className="pinNote">{r.note}</span>}
+              </div>
+              <div className="pinActions">
+                {school && <button className="mini" onClick={() => onOpenSchool(school)}>Manage → set PIN</button>}
+                <button className="mini ok" disabled={busyId === r.id} onClick={() => resolve(r.id)}>
+                  {busyId === r.id ? "…" : "Mark handled"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <style jsx>{`
+        .pinBanner { background: #FBF0DC; border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 16px; }
+        .pinHead { font-size: 13.5px; font-weight: 700; color: #92650f; margin-bottom: 10px; }
+        .pinList { display: flex; flex-direction: column; gap: 8px; }
+        .pinRow { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fff; border-radius: 8px; padding: 10px 12px; flex-wrap: wrap; }
+        .pinInfo { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+        .pinInfo strong { color: var(--ink); font-size: 13.5px; }
+        .pinWhen { color: var(--muted); font-size: 11.5px; }
+        .pinNote { color: var(--ink-2); font-style: italic; }
+        .pinActions { display: flex; gap: 6px; flex-shrink: 0; }
+        .mini { background: var(--navy-soft); color: var(--navy); border: none; border-radius: 6px; padding: 6px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+        .mini.ok { background: var(--green-soft); color: var(--green); }
       `}</style>
     </div>
   );
