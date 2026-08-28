@@ -8,6 +8,8 @@ type Settings = {
   bank_name: string;
   account_name: string;
   account_number: string;
+  payment_qr_data: string | null;
+  payment_qr_mimetype: string | null;
 };
 
 export default function CompanySettings({ onClose }: { onClose: () => void }) {
@@ -17,6 +19,8 @@ export default function CompanySettings({ onClose }: { onClose: () => void }) {
   const [accountNumber, setAccountNumber] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -41,6 +45,17 @@ export default function CompanySettings({ onClose }: { onClose: () => void }) {
       reader.readAsDataURL(f);
     } else {
       setPreview(null);
+    }
+  }
+
+  function onQrFileChange(f: File | null) {
+    setQrFile(f);
+    if (f) {
+      const reader = new FileReader();
+      reader.onload = () => setQrPreview(reader.result as string);
+      reader.readAsDataURL(f);
+    } else {
+      setQrPreview(null);
     }
   }
 
@@ -73,16 +88,26 @@ export default function CompanySettings({ onClose }: { onClose: () => void }) {
         sigData = data;
         sigMime = mimetype;
       }
+      let qrData: string | null = null;
+      let qrMime: string | null = null;
+      if (qrFile) {
+        const { data, mimetype } = await fileToBase64(qrFile);
+        qrData = data;
+        qrMime = mimetype;
+      }
       const { error } = await supabase.rpc("update_company_settings", {
         p_signature_data: sigData,
         p_signature_mimetype: sigMime,
         p_bank_name: bankName.trim(),
         p_account_name: accountName.trim(),
         p_account_number: accountNumber.trim(),
+        p_payment_qr_data: qrData,
+        p_payment_qr_mimetype: qrMime,
       });
       if (error) throw new Error(error.message);
-      setMsg("Saved. New documents will use these details and signature immediately.");
+      setMsg("Saved. New documents will use these details and images immediately.");
       setFile(null);
+      setQrFile(null);
     } catch (e: any) {
       setErr(e?.message || "Could not save settings.");
     }
@@ -91,6 +116,9 @@ export default function CompanySettings({ onClose }: { onClose: () => void }) {
 
   const currentSignatureUrl = settings?.signature_data
     ? `data:${settings.signature_mimetype || "image/jpeg"};base64,${settings.signature_data}`
+    : null;
+  const currentQrUrl = settings?.payment_qr_data
+    ? `data:${settings.payment_qr_mimetype || "image/jpeg"};base64,${settings.payment_qr_data}`
     : null;
 
   return (
@@ -118,6 +146,21 @@ export default function CompanySettings({ onClose }: { onClose: () => void }) {
         <input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
         <label>Account number</label>
         <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+
+        <label>Payment QR code (optional)</label>
+        <p className="hint" style={{ marginBottom: 8 }}>
+          Upload your bank/OPay app's "Scan to Pay Me" QR image — a real, scannable code your customers can pay
+          with directly. If left empty, invoices show a generated QR with your account details as plain text
+          instead (view-only, not scannable by banking apps).
+        </p>
+        <div className="sigPreviewBox">
+          {(qrPreview || currentQrUrl) ? (
+            <img src={qrPreview || currentQrUrl!} alt="Payment QR" style={{ maxHeight: 130 }} />
+          ) : (
+            <span className="noSig">No payment QR uploaded yet</span>
+          )}
+        </div>
+        <input type="file" accept="image/*" onChange={(e) => onQrFileChange(e.target.files?.[0] ?? null)} />
 
         {err && <div className="err">{err}</div>}
         {msg && <div className="okMsg">{msg}</div>}

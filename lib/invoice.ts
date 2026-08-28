@@ -21,7 +21,7 @@ function fmtMoney(n: number, currency: string) {
 }
 
 async function loadCompanySettings(): Promise<{
-  bank: BankDetails; signatureDataUrl: string | null;
+  bank: BankDetails; signatureDataUrl: string | null; paymentQrDataUrl: string | null;
 }> {
   try {
     const { data } = await supabase.rpc("get_company_settings");
@@ -32,9 +32,12 @@ async function loadCompanySettings(): Promise<{
     const signatureDataUrl = row?.signature_data
       ? `data:${row.signature_mimetype || "image/jpeg"};base64,${row.signature_data}`
       : null;
-    return { bank, signatureDataUrl };
+    const paymentQrDataUrl = row?.payment_qr_data
+      ? `data:${row.payment_qr_mimetype || "image/jpeg"};base64,${row.payment_qr_data}`
+      : null;
+    return { bank, signatureDataUrl, paymentQrDataUrl };
   } catch {
-    return { bank: PAYMENT_DETAILS_FALLBACK, signatureDataUrl: null };
+    return { bank: PAYMENT_DETAILS_FALLBACK, signatureDataUrl: null, paymentQrDataUrl: null };
   }
 }
 
@@ -44,7 +47,7 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const { navy, ink2, muted } = BRAND;
-  const { bank, signatureDataUrl } = await loadCompanySettings();
+  const { bank, signatureDataUrl, paymentQrDataUrl } = await loadCompanySettings();
 
   let y = drawLetterhead(doc, "INVOICE", `Ref: ${d.invoiceNumber}`);
 
@@ -117,24 +120,39 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   doc.setFont("helvetica", "bold");
   doc.text(bank.accountNumber, bankX + 5, rowTop + 40.5);
 
-  // Payment QR code — fixed, modest size, positioned right after the bank box
+  // Payment QR code — fixed, modest size, positioned right after the bank box.
+  // Prefers a real, scannable QR image the operator uploaded from their own
+  // banking app (e.g. OPay's "Scan to Pay Me" code); falls back to a
+  // generated text QR (view-only — not recognised by bank payment scanners)
+  // if none has been uploaded.
   const qrSize = 34;
   const qrX = bankX + bankW + gap;
   const qrY = rowTop + (boxH - qrSize) / 2; // vertically centred within the row
   try {
-    const qrDataUrl = await generatePaymentQrDataUrl(bank, {
-      amount: d.total,
-      reference: d.invoiceNumber,
-      schoolKey: d.schoolKey || d.schoolName,
-    });
+    let qrDataUrl: string;
+    let qrCaption: string;
+    let qrFormat: "PNG" | "JPEG";
+    if (paymentQrDataUrl) {
+      qrDataUrl = paymentQrDataUrl;
+      qrCaption = "Scan to pay directly";
+      qrFormat = paymentQrDataUrl.includes("image/png") ? "PNG" : "JPEG";
+    } else {
+      qrDataUrl = await generatePaymentQrDataUrl(bank, {
+        amount: d.total,
+        reference: d.invoiceNumber,
+        schoolKey: d.schoolKey || d.schoolName,
+      });
+      qrCaption = "Scan with any QR reader";
+      qrFormat = "PNG";
+    }
     doc.setDrawColor(224, 228, 236);
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(qrX, qrY, qrSize, qrSize + 5, 2, 2, "FD");
-    doc.addImage(qrDataUrl, "PNG", qrX + 2.5, qrY + 2.5, qrSize - 5, qrSize - 5);
+    doc.addImage(qrDataUrl, qrFormat, qrX + 2.5, qrY + 2.5, qrSize - 5, qrSize - 5);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...muted);
-    doc.text("Scan with any QR reader", qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
+    doc.text(qrCaption, qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
   } catch {
     // If QR generation fails for any reason, the invoice still renders correctly without it.
   }
