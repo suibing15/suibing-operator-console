@@ -45,7 +45,7 @@ export default function CareersStatus() {
     <div className="wrap">
       <BroadcastBar />
       <div className="card box">
-        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
+        <a href="/" className="brand" title="Back to home"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></a>
         <p className="sub">Check job application status</p>
 
         <label>Form number</label>
@@ -118,7 +118,7 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
     <div className="wrap">
       <BroadcastBar />
       <div className="card box">
-        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></div>
+        <a href="/" className="brand" title="Back to home"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></a>
         <p className="sub">Update your application — {form}</p>
         {initial.reviewer_note && (
           <div className="noteBox" style={{ marginBottom: 14 }}>
@@ -210,7 +210,7 @@ const styles = `
   .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 16px; background: var(--paper-2); }
   .box { padding: 34px; width: 100%; max-width: 440px; opacity: 0; animation: sbScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: box-shadow 0.3s ease; box-shadow: 0 4px 24px rgba(20,28,45,0.06); }
   .box:hover { box-shadow: 0 10px 36px rgba(20,28,45,0.1); }
-  .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; transition: opacity 0.15s; } .brand:hover { opacity: 0.8; }
   .logo { width: 34px; height: 34px; border-radius: 8px; }
   .brand span { font-weight: 400; }
   .sub { color: var(--muted); font-size: 13px; margin: 2px 0 20px; }

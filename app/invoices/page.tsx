@@ -75,13 +75,13 @@ export default function InvoiceStatus() {
       <div className="split">
         <aside className="panel">
           <div className="panelInner">
-            <div className="brandRow anim-1">
+            <a href="/" className="brandRow anim-1" title="Back to home">
               <img src="/logo.png" alt="Suibing IT Services" className="logo" />
               <div>
                 <div className="brandName">SUIBING</div>
                 <div className="brandSub">IT Services</div>
               </div>
-            </div>
+            </a>
             <h1 className="anim-2">Your invoices, whenever you need them.</h1>
             <p className="tagline anim-3">Look up and download any invoice issued to your school — registration, subscription renewals, or custom work.</p>
             <ul className="points anim-4">
@@ -155,7 +155,7 @@ const styles = `
   .panel::before { content: ""; position: absolute; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.04); top: -120px; right: -120px; animation: sbFloat 9s ease-in-out infinite; }
   .panel::after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; background: rgba(255,255,255,0.03); bottom: -100px; left: -80px; animation: sbFloat 11s ease-in-out infinite reverse; }
   .panelInner { position: relative; max-width: 440px; margin: 0 auto; }
-  .brandRow { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+  .brandRow { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; text-decoration: none; transition: opacity 0.15s; } .brandRow:hover { opacity: 0.8; }
   .logo { width: 44px; height: 44px; border-radius: 10px; }
   .brandName { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
   .brandSub { font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 500; }

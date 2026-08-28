@@ -112,13 +112,13 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
       <div className="split">
         <aside className="panel">
           <div className="panelInner">
-            <div className="brandRow anim-1">
+            <a href="/" className="brandRow anim-1" title="Back to home">
               <img src="/logo.png" alt="Suibing IT Services" className="logo" />
               <div>
                 <div className="brandName">SUIBING</div>
                 <div className="brandSub">IT Services</div>
               </div>
-            </div>
+            </a>
             <h1 className="anim-2">Your school's account, in one place.</h1>
             <p className="tagline anim-3">View invoices, submit payment receipts, and track your account activity — all in your own private portal.</p>
             <ul className="points anim-4">

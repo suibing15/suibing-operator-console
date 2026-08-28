@@ -117,7 +117,7 @@ export default function Login() {
   return (
     <div className="wrap">
       <div className="card box">
-        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span></div>
+        <a href="/" className="brand" title="Back to home"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>Bucket</span></a>
         <p className="sub">Operator Console</p>
 
         <div className="toggle">
@@ -196,7 +196,8 @@ export default function Login() {
         .links a:hover { text-decoration: underline; }
         .links .dot { color: var(--muted); }
         .box { padding: 34px; width: 100%; max-width: 380px; }
-        .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .brand { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; transition: opacity 0.15s; }
+        .brand:hover { opacity: 0.8; }
         .logo { width: 34px; height: 34px; border-radius: 8px; }
         .brand span { font-weight: 400; }
         .sub { color: var(--muted); font-size: 13px; margin: 2px 0 22px; text-align: center; }
