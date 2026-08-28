@@ -94,40 +94,60 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   // @ts-ignore - jspdf-autotable augments doc with lastAutoTable
   y = (doc as any).lastAutoTable.finalY + 10;
 
-  const rowTop = y;
-  const boxH = 42;
-  const gap = 6;
+  // Totals box, right-aligned, sits above the payment section — small and
+  // doesn't compete for space with the QR code below.
+  const totalsW = 76;
+  const totalsX = W - 18 - totalsW;
+  doc.setDrawColor(224, 228, 236);
+  doc.setFillColor(246, 248, 251);
+  doc.roundedRect(totalsX, y, totalsW, 20, 2, 2, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...ink2);
+  doc.text("Subtotal", totalsX + 6, y + 8);
+  doc.text(fmtMoney(d.subtotal, d.currency), totalsX + totalsW - 6, y + 8, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11.5);
+  doc.setTextColor(...navy);
+  doc.text("Total", totalsX + 6, y + 16);
+  doc.text(fmtMoney(d.total, d.currency), totalsX + totalsW - 6, y + 16, { align: "right" });
 
-  // Bank details box, left-aligned
-  const bankW = 56;
+  y += 30;
+  const rowTop = y;
+
+  // Payment Details box, left-aligned, compact
+  const bankW = 62;
   const bankX = 18;
+  const boxH = 60;
   doc.setDrawColor(224, 228, 236);
   doc.setFillColor(246, 248, 251);
   doc.roundedRect(bankX, rowTop, bankW, boxH, 2, 2, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setTextColor(...navy);
-  doc.text("Payment Details", bankX + 5, rowTop + 8);
+  doc.text("Payment Details", bankX + 6, rowTop + 10);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...ink2);
-  doc.text("Bank:", bankX + 5, rowTop + 14.5);
-  doc.text(bank.bankName, bankX + 5, rowTop + 18.5);
-  doc.text("Account Name:", bankX + 5, rowTop + 24.5);
-  const nameLines = doc.splitTextToSize(bank.accountName, bankW - 10);
-  doc.text(nameLines, bankX + 5, rowTop + 28.5);
-  doc.text("Account Number:", bankX + 5, rowTop + 36.5);
+  doc.text("Bank:", bankX + 6, rowTop + 19);
+  doc.text(bank.bankName, bankX + 6, rowTop + 24);
+  doc.text("Account Name:", bankX + 6, rowTop + 33);
+  const nameLines = doc.splitTextToSize(bank.accountName, bankW - 12);
+  doc.text(nameLines, bankX + 6, rowTop + 38);
+  doc.text("Account Number:", bankX + 6, rowTop + 49);
   doc.setFont("helvetica", "bold");
-  doc.text(bank.accountNumber, bankX + 5, rowTop + 40.5);
+  doc.setFontSize(9.5);
+  doc.text(bank.accountNumber, bankX + 6, rowTop + 54.5);
 
-  // Payment QR code — fixed, modest size, positioned right after the bank box.
-  // Prefers a real, scannable QR image the operator uploaded from their own
-  // banking app (e.g. OPay's "Scan to Pay Me" code); falls back to a
-  // generated text QR (view-only — not recognised by bank payment scanners)
-  // if none has been uploaded.
-  const qrSize = 34;
+  // Payment QR code — given real, scannable size (roughly double the
+  // previous compact layout) since a photographed/screenshotted QR from a
+  // banking app needs much more room to stay readable than a freshly
+  // generated one. Prefers the operator's real uploaded QR (e.g. OPay's
+  // "Scan to Pay Me" code); falls back to a generated text QR (view-only —
+  // not recognised by bank payment scanners) if none has been uploaded.
+  const gap = 8;
+  const qrBoxSize = boxH; // square card matching the bank box height
   const qrX = bankX + bankW + gap;
-  const qrY = rowTop + (boxH - qrSize) / 2; // vertically centred within the row
   try {
     let qrDataUrl: string;
     let qrCaption: string;
@@ -147,36 +167,19 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
     }
     doc.setDrawColor(224, 228, 236);
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(qrX, qrY, qrSize, qrSize + 5, 2, 2, "FD");
-    doc.addImage(qrDataUrl, qrFormat, qrX + 2.5, qrY + 2.5, qrSize - 5, qrSize - 5);
+    doc.roundedRect(qrX, rowTop, qrBoxSize, qrBoxSize, 2, 2, "FD");
+    const imgPad = 4;
+    const imgSize = qrBoxSize - imgPad * 2 - 6; // leave room for the caption below
+    doc.addImage(qrDataUrl, qrFormat, qrX + imgPad, rowTop + imgPad, imgSize, imgSize);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
+    doc.setFontSize(6.5);
     doc.setTextColor(...muted);
-    doc.text(qrCaption, qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
+    doc.text(qrCaption, qrX + qrBoxSize / 2, rowTop + imgPad + imgSize + 5, { align: "center" });
   } catch {
     // If QR generation fails for any reason, the invoice still renders correctly without it.
   }
-  const qrRight = qrX + qrSize;
 
-  // Totals box, right-aligned — width computed from remaining space so it can
-  // never overlap the QR box, regardless of page width or box sizes above.
-  const boxX = qrRight + gap;
-  const boxW = (W - 18) - boxX;
-  doc.setDrawColor(224, 228, 236);
-  doc.setFillColor(246, 248, 251);
-  doc.roundedRect(boxX, rowTop, boxW, 20, 2, 2, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...ink2);
-  doc.text("Subtotal", boxX + 6, rowTop + 8);
-  doc.text(fmtMoney(d.subtotal, d.currency), boxX + boxW - 6, rowTop + 8, { align: "right" });
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
-  doc.setTextColor(...navy);
-  doc.text("Total", boxX + 6, rowTop + 16);
-  doc.text(fmtMoney(d.total, d.currency), boxX + boxW - 6, rowTop + 16, { align: "right" });
-
-  y = rowTop + boxH + 10;
+  y = rowTop + boxH + 12;
 
   if (d.notes?.trim()) {
     doc.setFont("helvetica", "bold");
