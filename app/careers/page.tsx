@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import WhatsAppButton from "@/app/components/WhatsAppButton";
+import BroadcastBar from "@/app/components/BroadcastBar";
 
 type Job = { id: string; title: string; description: string | null };
 type Result = { form_number: string; login_code: string };
@@ -16,6 +17,7 @@ export default function Careers() {
 
   return (
     <div className="page">
+      <BroadcastBar />
       <div className="split">
         <aside className="panel">
           <div className="panelInner">

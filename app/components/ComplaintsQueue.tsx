@@ -22,6 +22,8 @@ export default function ComplaintsQueue({ operatorEmail }: { operatorEmail: stri
   const [filter, setFilter] = useState("open");
   const [selected, setSelected] = useState<Complaint | null>(null);
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("complaints").select("*").order("updated_at", { ascending: false });
@@ -36,6 +38,18 @@ export default function ComplaintsQueue({ operatorEmail }: { operatorEmail: stri
 
   const visible = filter === "all" ? rows : rows.filter((r) => r.status === filter);
   const openCount = rows.filter((r) => r.status === "open").length;
+  const resolvedCount = rows.filter((r) => r.status === "resolved").length;
+
+  async function clearResolved() {
+    if (!confirmClear) { setConfirmClear(true); return; }
+    setClearing(true);
+    const { data, error } = await supabase.rpc("clear_resolved_complaints", { p_by: operatorEmail });
+    setClearing(false);
+    setConfirmClear(false);
+    if (error) { setToast({ kind: "error", message: error.message }); return; }
+    setToast({ kind: "success", message: `Cleared ${data ?? 0} resolved complaint(s)` });
+    load();
+  }
 
   return (
     <div>
@@ -45,6 +59,14 @@ export default function ComplaintsQueue({ operatorEmail }: { operatorEmail: stri
             {f.label}{f.key === "open" && openCount > 0 ? ` (${openCount})` : ""}
           </button>
         ))}
+        {resolvedCount > 0 && (
+          <button className="chip clear" onClick={clearResolved} disabled={clearing}>
+            {clearing ? "Clearing…" : confirmClear ? `Confirm: delete ${resolvedCount} resolved?` : `Clear resolved (${resolvedCount})`}
+          </button>
+        )}
+        {confirmClear && (
+          <button className="chip" onClick={() => setConfirmClear(false)}>Cancel</button>
+        )}
       </div>
 
       <div className="card table-wrap">
@@ -84,6 +106,7 @@ export default function ComplaintsQueue({ operatorEmail }: { operatorEmail: stri
         .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .chip.clear { color: var(--red); border-color: var(--red-soft); background: var(--red-soft); }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }

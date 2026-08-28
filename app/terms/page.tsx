@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BroadcastBar from "@/app/components/BroadcastBar";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 export default function TermsOfService() {
   return (
     <div className="legal">
+      <BroadcastBar />
       <div className="legalInner">
         <a href="/" className="back">← Back to home</a>
         <h1>Terms of Service</h1>

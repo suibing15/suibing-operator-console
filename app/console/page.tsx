@@ -14,6 +14,7 @@ import MfaSettings from "@/app/components/MfaSettings";
 import CompanySettings from "@/app/components/CompanySettings";
 import FactoryReset from "@/app/components/FactoryReset";
 import ComplaintsQueue from "@/app/components/ComplaintsQueue";
+import BroadcastAdmin from "@/app/components/BroadcastAdmin";
 
 type School = {
   id: string;
@@ -56,7 +57,7 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | null>(null);
+  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | "broadcast" | null>(null);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -182,6 +183,7 @@ export default function Console() {
             <button className="sideLink" onClick={() => { setAccountModal("password"); setSidebarOpen(false); }}>Set password</button>
             <button className="sideLink" onClick={() => { setAccountModal("mfa"); setSidebarOpen(false); }}>Authenticator</button>
             <button className="sideLink" onClick={() => { setAccountModal("settings"); setSidebarOpen(false); }}>Company settings</button>
+            <button className="sideLink" onClick={() => { setAccountModal("broadcast"); setSidebarOpen(false); }}>Broadcast announcement</button>
             <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => { setAccountModal("reset"); setSidebarOpen(false); }}>Factory reset</button>
             <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
@@ -272,6 +274,7 @@ export default function Console() {
       {accountModal === "password" && <SetPasswordModal onClose={() => setAccountModal(null)} />}
       {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
       {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
+      {accountModal === "broadcast" && <BroadcastAdmin onClose={() => setAccountModal(null)} />}
       {accountModal === "reset" && <FactoryReset operatorEmail={email} onClose={() => { setAccountModal(null); load(); }} />}
 
       {selected && (

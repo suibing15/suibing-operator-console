@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import BroadcastBar from "@/app/components/BroadcastBar";
 
 type InvoiceRow = {
   invoice_number: string;
@@ -56,6 +57,7 @@ export default function InvoiceStatus() {
       await generateInvoicePdf({
         invoiceNumber: row.invoice_number,
         schoolName: row.school_name,
+        schoolKey: schoolKey.trim().toLowerCase(),
         currency: row.currency,
         lineItems: (row.line_items as any[]).map((li) => ({ description: li.description, qty: li.qty, unitPrice: li.unit_price })),
         subtotal: row.subtotal,
@@ -69,6 +71,7 @@ export default function InvoiceStatus() {
 
   return (
     <div className="page">
+      <BroadcastBar />
       <div className="split">
         <aside className="panel">
           <div className="panelInner">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BroadcastBar from "@/app/components/BroadcastBar";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 export default function PrivacyPolicy() {
   return (
     <div className="legal">
+      <BroadcastBar />
       <div className="legalInner">
         <a href="/" className="back">← Back to home</a>
         <h1>Privacy Policy</h1>

@@ -178,7 +178,7 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
 }
 
 function PortalDashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account">("invoices");
+  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account" | "guide">("invoices");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -252,6 +252,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
         <button className={tab === "activity" ? "tab on" : "tab"} onClick={() => setTab("activity")}>Activity</button>
         <button className={tab === "complaints" ? "tab on" : "tab"} onClick={() => setTab("complaints")}>Support</button>
         <button className={tab === "account" ? "tab on" : "tab"} onClick={() => setTab("account")}>Account</button>
+        <button className={tab === "guide" ? "tab on" : "tab"} onClick={() => setTab("guide")}>? Guide</button>
       </div>
 
       {tab === "invoices" && <InvoicesTab session={session} />}
@@ -259,6 +260,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
       {tab === "activity" && <ActivityTab session={session} />}
       {tab === "complaints" && <ComplaintsTab session={session} />}
       {tab === "account" && <AccountTab session={session} />}
+      {tab === "guide" && <GuideTab />}
 
       <WhatsAppButton />
       <style jsx>{dashStyles}</style>
@@ -674,6 +676,37 @@ function ComplaintThread({ session, complaintId, onBack }: { session: Session; c
   );
 }
 
+function GuideTab() {
+  const steps: { title: string; body: string }[] = [
+    { title: "Check what you owe", body: "Open Invoices to see every bill from Suibing IT Services, whether it's paid, pending, or overdue, and download a PDF copy any time." },
+    { title: "Pay an invoice", body: "Open Submit Payment, select the invoice, upload a screenshot or photo of your payment receipt, and confirm. We'll review it and mark it as paid." },
+    { title: "See your student/record counts", body: "The numbers at the top of your dashboard always show exactly what's currently tracked for your school, updated automatically." },
+    { title: "Report a problem or ask a question", body: "Open Support and click New complaint. Describe the issue, and we'll reply right there — you'll see our response the next time you check that tab." },
+    { title: "Everything we've done for your account", body: "Open Activity to see a full history: invoices issued, payments confirmed, and anything else we've updated for you." },
+    { title: "Change your PIN", body: "Open Account, enter your current PIN, then set a new one. Keep it somewhere safe — we can never see or recover it for you." },
+    { title: "Forgot your PIN?", body: "On the sign-in screen, tap \"Forgot your PIN?\", confirm your school key, and we'll be notified to help you reset it." },
+  ];
+  return (
+    <div className="tabPanel">
+      <p className="guideIntro">A quick guide to everything you can do here.</p>
+      <div className="cardList">
+        {steps.map((s, i) => (
+          <div key={i} className="rowCard guideCard">
+            <div className="guideNum">{i + 1}</div>
+            <div>
+              <div className="rowTitle">{s.title}</div>
+              <div className="rowSub" style={{ marginTop: 4 }}>{s.body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ marginTop: 16, textAlign: "center" }}>
+        Still stuck? Use the WhatsApp button in the corner — we're happy to help.
+      </p>
+    </div>
+  );
+}
+
 function AccountTab({ session }: { session: Session }) {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -761,6 +794,9 @@ const dashStyles = `
   .muted { color: var(--muted); font-size: 14px; }
   .cardList { display: flex; flex-direction: column; gap: 12px; }
   .rowCard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px; transition: box-shadow 0.2s; }
+  .guideIntro { font-size: 13.5px; color: var(--ink-2); margin-bottom: 16px; }
+  .guideCard { display: flex; gap: 14px; align-items: flex-start; }
+  .guideNum { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .rowCard:hover { box-shadow: 0 4px 16px rgba(20,28,45,0.06); }
   .rowCard.slim { padding: 12px 16px; }
   .rowTop { display: flex; justify-content: space-between; align-items: flex-start; }
