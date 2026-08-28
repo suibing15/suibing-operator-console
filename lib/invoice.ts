@@ -134,7 +134,7 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...muted);
-    doc.text("Scan with your bank app", qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
+    doc.text("Scan with any QR reader", qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
   } catch {
     // If QR generation fails for any reason, the invoice still renders correctly without it.
   }

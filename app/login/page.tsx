@@ -49,9 +49,15 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) { setBusy(false); setErr(error.message); return; }
 
+    // Force a fresh read of the session before checking MFA status — the
+    // client's internal auth state can lag a beat behind the signIn call
+    // resolving, which was causing the MFA step to be skipped.
+    await supabase.auth.getSession();
+
     // Check whether this account has an active MFA factor requiring step-up.
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const { data: aal, error: aalErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     setBusy(false);
+    if (aalErr) { setErr(aalErr.message); return; }
     if (aal?.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
       const { data: factors } = await supabase.auth.mfa.listFactors();
       const totp = factors?.totp?.find((f) => f.status === "verified");
