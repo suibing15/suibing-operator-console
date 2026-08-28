@@ -55,10 +55,7 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showMfaModal, setShowMfaModal] = useState(false);
-  const [showCompanySettings, setShowCompanySettings] = useState(false);
-  const [showFactoryReset, setShowFactoryReset] = useState(false);
+  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | null>(null);
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -174,10 +171,10 @@ export default function Console() {
           <InstallButton />
           <div className="accountBox">
             <div className="accountEmail">{email}</div>
-            <button className="sideLink" onClick={() => setShowPasswordModal(true)}>Set password</button>
-            <button className="sideLink" onClick={() => setShowMfaModal(true)}>Authenticator</button>
-            <button className="sideLink" onClick={() => setShowCompanySettings(true)}>Company settings</button>
-            <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => setShowFactoryReset(true)}>Factory reset</button>
+            <button className="sideLink" onClick={() => setAccountModal("password")}>Set password</button>
+            <button className="sideLink" onClick={() => setAccountModal("mfa")}>Authenticator</button>
+            <button className="sideLink" onClick={() => setAccountModal("settings")}>Company settings</button>
+            <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => setAccountModal("reset")}>Factory reset</button>
             <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
         </div>
@@ -191,15 +188,15 @@ export default function Console() {
           <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
         </header>
 
-        {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
-        {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
-        {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
-        {showFactoryReset && <FactoryReset operatorEmail={email} onClose={() => { setShowFactoryReset(false); load(); }} />}
+        {accountModal === "password" && <SetPasswordModal onClose={() => setAccountModal(null)} />}
+        {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
+        {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
+        {accountModal === "reset" && <FactoryReset operatorEmail={email} onClose={() => { setAccountModal(null); load(); }} />}
 
         {mfaCheckDone && mfaIncomplete && (
           <div className="mfaBanner">
             Your authenticator app setup looks incomplete — you may want to check it under{" "}
-            <button className="bannerLink" onClick={() => setShowMfaModal(true)}>Authenticator</button>{" "}
+            <button className="bannerLink" onClick={() => setAccountModal("mfa")}>Authenticator</button>{" "}
             in the sidebar. This does not block your access.
             <button className="bannerClose" onClick={() => setMfaIncomplete(false)}>✕</button>
           </div>

@@ -162,6 +162,7 @@ function scheduleBucket(fee?: string, period?: string): Paragraph[] {
     clause("B1.2", `Subscription Fee: ${fee || "[amount]"} per ${period || "[period]"}. This fee is set individually for the Client and may increase over time as the volume of the Client's stored records and data grows.`),
     clause("B1.3", "Client Data under Bucket is retained for as long as the subscription remains active and paid. Data is wiped on non-renewal only after 14 days' written notice, per the common terms below."),
     clause("B1.4", "Free onboarding training applies on initial subscription. Requests for new features beyond the standard Bucket feature set are chargeable and quoted separately."),
+    clause("B1.5", "Where this Service requires a domain name and/or hosting to operate, these are billed separately as ongoing charges under Clause 8 above, not included in the Subscription Fee."),
   ];
 }
 function scheduleSSMS(): Paragraph[] {
@@ -213,6 +214,7 @@ function scheduleEReportsheet(): Paragraph[] {
     clause("G1.3", "The system automatically generates a single, combined report sheet per student, with positions (class rank) calculated automatically from entered scores."),
     clause("G1.4", "Report sheets produced under this Schedule are print-ready on generation; the Client is responsible for printing and distribution."),
     clause("G1.5", "Feature Additions, Persistent Storage, and End-of-Term Data Handling terms mirror those set out for SSMS above, unless varied in writing between the Parties."),
+    clause("G1.6", "Where this Service requires a domain name and/or hosting to operate, these are billed separately as ongoing charges under Clause 8 above, not included in any one-time setup or full-access fee."),
   ];
 }
 function scheduleCustom(): Paragraph[] {
@@ -317,6 +319,16 @@ export async function generateContractDocx(req: ContractRequest): Promise<Buffer
 
           h1("7. Governing Law"),
           clause("7.1", "This Agreement is governed by the laws of the Federal Republic of Nigeria."),
+
+          h1("8. Fees, Domain & Hosting"),
+          clause("8.1", "Fees quoted or agreed in this Agreement are stated in the currency and amount current as at the Effective Date. Where a fee is denominated in or influenced by a foreign currency exchange rate, Suibing may revise the fee for any subsequent renewal or new Term to reflect prevailing exchange rates or cost changes, and will give the Client written notice of any such revision before it takes effect."),
+          clause("8.2", "Where a Service requires a domain name and/or hosting, these are billed separately from, and in addition to, any one-time setup or full-access fee, as ongoing charges for the period they cover. Suibing will invoice the Client for domain and hosting charges as they fall due."),
+          clause("8.3", "Domain and hosting charges are payable regardless of whether the Client actively uses the Service during the covered period, for so long as this Agreement remains in force in respect of that Service."),
+
+          h1("9. School Portal Access"),
+          clause("9.1", "Where provided, the Client's school portal gives the Client visibility of invoices, service updates, and reminders relevant to their subscription, and a facility to submit proof of payment for review."),
+          clause("9.2", "Unless otherwise agreed in writing, school portal access under this Agreement is provided for the Client to view and manage payments relating to the Service(s) covered by this Agreement. Access to any other feature is at Suibing's discretion and may be extended or limited as agreed between the Parties."),
+          clause("9.3", "Suibing may use the school portal to notify the Client of new services, feature updates, or payment reminders relevant to their account."),
 
           ...scheduleParagraphs,
 

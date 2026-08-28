@@ -79,6 +79,9 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotKey, setForgotKey] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
 
   async function login() {
     setErr(null);
@@ -92,6 +95,16 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) { setErr("Incorrect school key or PIN."); return; }
     onLogin({ schoolKey: schoolKey.trim().toLowerCase(), pin: pin.trim(), name: row.name });
+  }
+
+  async function requestReset() {
+    setErr(null);
+    if (!forgotKey.trim()) { setErr("Enter your school key first."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("request_pin_reset", { p_school_key: forgotKey.trim().toLowerCase() });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setForgotSent(true);
   }
 
   return (
@@ -131,6 +144,24 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
             <button className="btn" onClick={login} disabled={busy} style={{ width: "100%", marginTop: 16 }}>
               {busy ? "Signing in…" : "Sign in"}
             </button>
+            <button type="button" className="forgotLink" onClick={() => { setForgotOpen((v) => !v); setForgotSent(false); setErr(null); }}>
+              {forgotOpen ? "Hide" : "Forgot your PIN?"}
+            </button>
+            {forgotOpen && (
+              <div className="forgotBox">
+                {forgotSent ? (
+                  <p className="forgotOk">Request sent — Suibing IT Services will reach out to reset your PIN.</p>
+                ) : (
+                  <>
+                    <label>Confirm your school key</label>
+                    <input value={forgotKey} onChange={(e) => setForgotKey(e.target.value)} placeholder="e.g. brightfuture" />
+                    <button type="button" className="btn ghost" onClick={requestReset} disabled={busy} style={{ width: "100%", marginTop: 10 }}>
+                      {busy ? "Sending…" : "Request PIN reset"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             <p className="note">Don't have portal access yet? Contact Suibing IT Services to have it set up.</p>
           </div>
           <div className="links anim-links">
@@ -147,7 +178,7 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
 }
 
 function PortalDashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const [tab, setTab] = useState<"invoices" | "payments" | "activity">("invoices");
+  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "account">("invoices");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -219,11 +250,13 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
         <button className={tab === "invoices" ? "tab on" : "tab"} onClick={() => setTab("invoices")}>Invoices</button>
         <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>Submit Payment</button>
         <button className={tab === "activity" ? "tab on" : "tab"} onClick={() => setTab("activity")}>Activity</button>
+        <button className={tab === "account" ? "tab on" : "tab"} onClick={() => setTab("account")}>Account</button>
       </div>
 
       {tab === "invoices" && <InvoicesTab session={session} />}
       {tab === "payments" && <PaymentsTab session={session} />}
       {tab === "activity" && <ActivityTab session={session} />}
+      {tab === "account" && <AccountTab session={session} />}
 
       <WhatsAppButton />
       <style jsx>{dashStyles}</style>
@@ -489,11 +522,61 @@ const styles = `
   input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
   .err { background: var(--red-soft); color: var(--red); padding: 10px 13px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
   .note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 14px; text-align: center; }
+  .forgotLink { display: block; width: 100%; text-align: center; background: none; border: none; color: var(--navy); font-size: 12.5px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  .forgotLink:hover { text-decoration: underline; }
+  .forgotBox { margin-top: 10px; padding: 12px; background: var(--paper-2); border-radius: var(--radius-sm); }
+  .forgotBox label { display: block; font-size: 11.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
+  .forgotBox input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; box-sizing: border-box; }
+  .forgotOk { font-size: 12.5px; color: var(--green); line-height: 1.5; margin: 0; }
   .links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: 13px; }
   .links a { color: var(--navy); text-decoration: none; font-weight: 600; }
   .links a:hover { text-decoration: underline; }
   .dot2 { color: var(--muted); }
 `;
+
+function AccountTab({ session }: { session: Session }) {
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function changePin() {
+    setErr(null); setMsg(null);
+    if (!currentPin.trim()) { setErr("Enter your current PIN."); return; }
+    if (newPin.trim().length < 4) { setErr("New PIN must be at least 4 characters."); return; }
+    if (newPin.trim() !== confirmPin.trim()) { setErr("New PIN and confirmation do not match."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("change_school_pin", {
+      p_school_key: session.schoolKey, p_current_pin: currentPin.trim(), p_new_pin: newPin.trim(),
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setMsg("PIN updated. Use your new PIN next time you sign in.");
+    setCurrentPin(""); setNewPin(""); setConfirmPin("");
+  }
+
+  return (
+    <div className="tabPanel">
+      <div className="formBox card">
+        <h3>Change your PIN</h3>
+        <label>Current PIN</label>
+        <input type="password" value={currentPin} onChange={(e) => setCurrentPin(e.target.value)} />
+        <label>New PIN (min. 4 characters)</label>
+        <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} />
+        <label>Confirm new PIN</label>
+        <input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value)} onKeyDown={(e) => e.key === "Enter" && changePin()} />
+        {err && <div className="err">{err}</div>}
+        {msg && <div className="msgOk">{msg}</div>}
+        <button className="btn ok" onClick={changePin} disabled={busy} style={{ width: "100%", marginTop: 12 }}>
+          {busy ? "Updating…" : "Update PIN"}
+        </button>
+      </div>
+      <p className="muted" style={{ marginTop: 14 }}>School key: <strong>{session.schoolKey}</strong></p>
+    </div>
+  );
+}
 
 const dashStyles = `
   .dashWrap { min-height: 100vh; background: var(--paper-2); padding: 24px; }
