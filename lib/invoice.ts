@@ -116,9 +116,9 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   const rowTop = y;
 
   // Payment Details box, left-aligned, compact
-  const bankW = 62;
+  const bankW = 90;
   const bankX = 18;
-  const boxH = 60;
+  const boxH = 42;
   doc.setDrawColor(224, 228, 236);
   doc.setFillColor(246, 248, 251);
   doc.roundedRect(bankX, rowTop, bankW, boxH, 2, 2, "F");
@@ -134,27 +134,40 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   doc.text("Account Name:", bankX + 6, rowTop + 33);
   const nameLines = doc.splitTextToSize(bank.accountName, bankW - 12);
   doc.text(nameLines, bankX + 6, rowTop + 38);
-  doc.text("Account Number:", bankX + 6, rowTop + 49);
+  doc.text("Account Number:", bankX + bankW / 2 + 4, rowTop + 19);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
-  doc.text(bank.accountNumber, bankX + 6, rowTop + 54.5);
+  doc.text(bank.accountNumber, bankX + bankW / 2 + 4, rowTop + 24);
 
-  // Payment QR code — given real, scannable size (roughly double the
-  // previous compact layout) since a photographed/screenshotted QR from a
-  // banking app needs much more room to stay readable than a freshly
-  // generated one. Prefers the operator's real uploaded QR (e.g. OPay's
-  // "Scan to Pay Me" code); falls back to a generated text QR (view-only —
-  // not recognised by bank payment scanners) if none has been uploaded.
-  const gap = 8;
-  const qrBoxSize = boxH; // square card matching the bank box height
-  const qrX = bankX + bankW + gap;
+  y = rowTop + boxH + 10;
+
+  // Payment QR code — given its own full-width dedicated section, sized as
+  // large as practical (well beyond the size needed just for a generated
+  // code) because a real photographed/screenshotted QR from a banking app
+  // (e.g. OPay's "Scan to Pay Me" card, which encodes a dense EMVCo
+  // merchant payload) needs significant on-screen size to stay reliably
+  // scannable once rendered inside a PDF viewer, which often downsamples
+  // embedded images relative to the page's zoom level. Prefers the
+  // operator's real uploaded QR; falls back to a generated text QR
+  // (view-only — not recognised by bank payment scanners) if none has
+  // been uploaded.
+  const qrBoxSize = 85;
+  const qrX = W / 2 - qrBoxSize / 2; // centred on the page for maximum visual prominence
+  const pageH = doc.internal.pageSize.getHeight();
+  const footerSafeY = pageH - 22; // keep clear of the footer band drawn by drawFooter()
+  if (y + qrBoxSize + 16 > footerSafeY) {
+    // Not enough room left on this page for the QR block plus its caption —
+    // start a fresh page rather than let it crowd or collide with the footer.
+    doc.addPage();
+    y = 20;
+  }
   try {
     let qrDataUrl: string;
     let qrCaption: string;
     let qrFormat: "PNG" | "JPEG";
     if (paymentQrDataUrl) {
       qrDataUrl = paymentQrDataUrl;
-      qrCaption = "Scan to pay directly";
+      qrCaption = "Scan to pay directly — open your bank app's QR scanner";
       qrFormat = paymentQrDataUrl.includes("image/png") ? "PNG" : "JPEG";
     } else {
       qrDataUrl = await generatePaymentQrDataUrl(bank, {
@@ -167,19 +180,43 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
     }
     doc.setDrawColor(224, 228, 236);
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(qrX, rowTop, qrBoxSize, qrBoxSize, 2, 2, "FD");
-    const imgPad = 4;
-    const imgSize = qrBoxSize - imgPad * 2 - 6; // leave room for the caption below
-    doc.addImage(qrDataUrl, qrFormat, qrX + imgPad, rowTop + imgPad, imgSize, imgSize);
+    doc.roundedRect(qrX, y, qrBoxSize, qrBoxSize + 8, 2, 2, "FD");
+    const imgPad = 6;
+    const maxDim = qrBoxSize - imgPad * 2;
+    // Preserve the real image's aspect ratio — a real uploaded QR card
+    // (e.g. OPay's tall branded card) is rarely square, and forcing it
+    // into a square distorts the QR's own module grid just enough to
+    // break real-world camera-based scanning, even though the raw pixel
+    // data decodes fine. Fit it within the available box instead.
+    let drawW = maxDim;
+    let drawH = maxDim;
+    try {
+      const props = (doc as any).getImageProperties(qrDataUrl);
+      if (props?.width && props?.height) {
+        const ratio = props.width / props.height;
+        if (ratio >= 1) {
+          drawW = maxDim;
+          drawH = maxDim / ratio;
+        } else {
+          drawH = maxDim;
+          drawW = maxDim * ratio;
+        }
+      }
+    } catch {
+      // If dimensions can't be read for any reason, fall back to a square fit.
+    }
+    const drawX = qrX + imgPad + (maxDim - drawW) / 2;
+    const drawY = y + imgPad + (maxDim - drawH) / 2;
+    doc.addImage(qrDataUrl, qrFormat, drawX, drawY, drawW, drawH);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
+    doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text(qrCaption, qrX + qrBoxSize / 2, rowTop + imgPad + imgSize + 5, { align: "center" });
+    doc.text(qrCaption, W / 2, y + qrBoxSize + 5.5, { align: "center" });
+    y += qrBoxSize + 16;
   } catch {
     // If QR generation fails for any reason, the invoice still renders correctly without it.
+    y += 10;
   }
-
-  y = rowTop + boxH + 12;
 
   if (d.notes?.trim()) {
     doc.setFont("helvetica", "bold");
@@ -215,6 +252,12 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
   doc.setTextColor(...navy);
   doc.text("For SUIBING LIMITED, trading as Suibing IT Services", 18, y);
 
-  drawFooter(doc, "Page 1 of 1");
+  const totalPages = (doc as any).internal.getNumberOfPages
+    ? (doc as any).internal.getNumberOfPages()
+    : doc.internal.pages.length - 1; // jsPDF's pages array is 1-indexed with a leading placeholder
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    drawFooter(doc, totalPages > 1 ? `Page ${p} of ${totalPages}` : "Page 1 of 1");
+  }
   doc.save(`${d.invoiceNumber}_${d.schoolName.replace(/\s+/g, "_")}.pdf`);
 }
