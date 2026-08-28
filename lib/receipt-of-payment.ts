@@ -119,11 +119,26 @@ export async function generateReceiptPdf(d: ReceiptDetails) {
   doc.text("Thank you for your payment.", 18, y);
   y += 14;
 
-  // Authorised signature block
+  // Authorised signature block — sized and aspect-ratio-preserved so a
+  // real signature photo (any shape) never looks stretched or oversized.
   if (signatureDataUrl) {
     try {
-      doc.addImage(signatureDataUrl, "JPEG", 18, y, 40, 20);
-      y += 22;
+      const maxSigW = 32;
+      const maxSigH = 15;
+      let sigW = maxSigW;
+      let sigH = maxSigH;
+      try {
+        const props = (doc as any).getImageProperties(signatureDataUrl);
+        if (props?.width && props?.height) {
+          const ratio = props.width / props.height;
+          if (maxSigW / ratio <= maxSigH) { sigW = maxSigW; sigH = maxSigW / ratio; }
+          else { sigH = maxSigH; sigW = maxSigH * ratio; }
+        }
+      } catch {
+        // If dimensions can't be read, fall back to the default box above.
+      }
+      doc.addImage(signatureDataUrl, "JPEG", 18, y, sigW, sigH);
+      y += sigH + 5;
     } catch {
       y += 4;
     }

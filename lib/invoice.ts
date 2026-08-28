@@ -217,11 +217,32 @@ export async function generateInvoicePdf(d: InvoiceDetails) {
 
   y = rowTop + Math.max(qrBoxSize + qrCaptionH, boxH) + 14;
 
-  // Authorised signature block — compact, sits at the bottom
+  // Authorised signature block — compact, sits at the bottom, sized and
+  // aspect-ratio-preserved so a real signature photo (any shape) never
+  // looks stretched or oversized against the rest of the document.
   if (signatureDataUrl) {
     try {
-      doc.addImage(signatureDataUrl, "JPEG", 18, y, 34, 17);
-      y += 19;
+      const maxSigW = 32;
+      const maxSigH = 15;
+      let sigW = maxSigW;
+      let sigH = maxSigH;
+      try {
+        const props = (doc as any).getImageProperties(signatureDataUrl);
+        if (props?.width && props?.height) {
+          const ratio = props.width / props.height;
+          if (maxSigW / ratio <= maxSigH) {
+            sigW = maxSigW;
+            sigH = maxSigW / ratio;
+          } else {
+            sigH = maxSigH;
+            sigW = maxSigH * ratio;
+          }
+        }
+      } catch {
+        // If dimensions can't be read, fall back to the default box above.
+      }
+      doc.addImage(signatureDataUrl, "JPEG", 18, y, sigW, sigH);
+      y += sigH + 3;
     } catch {
       y += 3;
     }
