@@ -36,15 +36,32 @@ export async function generateReceiptPdf(d: ReceiptDetails) {
 
   let y = drawLetterhead(doc, "RECEIPT OF PAYMENT", `Ref: ${d.receiptNumber}`);
 
-  // Confirmed stamp-style badge
+  // Confirmed stamp-style badge — box sized to the actual text width so
+  // the label never overflows regardless of font metrics.
+  const badgeText = "PAYMENT CONFIRMED";
+  const badgeFontSize = 10.5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(badgeFontSize);
+  const textWidth = doc.getTextWidth(badgeText);
+  const badgePaddingX = 10;
+  const checkWidth = 6; // reserved space for the ✓ glyph before the text
+  const badgeW = textWidth + checkWidth + badgePaddingX * 2;
+  const badgeH = 12;
+  const badgeX = W / 2 - badgeW / 2;
   doc.setDrawColor(...green);
   doc.setFillColor(230, 247, 237);
-  doc.roundedRect(W / 2 - 30, y, 60, 12, 6, 6, "FD");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
+  doc.roundedRect(badgeX, y, badgeW, badgeH, 6, 6, "FD");
   doc.setTextColor(...green);
-  doc.text("✓ PAYMENT CONFIRMED", W / 2, y + 8, { align: "center" });
-  y += 24;
+  doc.text(badgeText, W / 2 + checkWidth / 2, y + badgeH / 2 + 3, { align: "center" });
+  // Draw the checkmark as vector lines instead of a font glyph — jsPDF's
+  // built-in Helvetica does not reliably render ✓ across environments.
+  const checkX = badgeX + badgePaddingX - 1;
+  const checkY = y + badgeH / 2;
+  doc.setDrawColor(...green);
+  doc.setLineWidth(0.6);
+  doc.line(checkX, checkY, checkX + 1.6, checkY + 1.8);
+  doc.line(checkX + 1.6, checkY + 1.8, checkX + 4.2, checkY - 2.2);
+  y += badgeH + 12;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);

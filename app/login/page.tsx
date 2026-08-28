@@ -22,10 +22,11 @@ export default function Login() {
   const [useBackupCode, setUseBackupCode] = useState(false);
 
   useEffect(() => {
+    if (needsMfa) return; // don't auto-redirect while an MFA challenge is pending
     if (!loading && sessionEmail && isOperator) {
       router.replace("/console");
     }
-  }, [loading, sessionEmail, isOperator, router]);
+  }, [loading, sessionEmail, isOperator, router, needsMfa]);
 
   async function sendMagicLink() {
     setErr(null);

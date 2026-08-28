@@ -99,21 +99,26 @@ function logoBuffer(): Buffer {
   const base64 = LOGO_PNG_BASE64.split(",")[1] ?? LOGO_PNG_BASE64;
   return Buffer.from(base64, "base64");
 }
-function signBlock(roleTitle: string, signatureBuffer?: Buffer | null) {
+function signBlock(opts: {
+  roleTitle: string;
+  signerName?: string;      // if known, pre-filled instead of a blank line
+  signatureBuffer?: Buffer | null;
+  dateText?: string;        // if known (e.g. today's date), pre-filled instead of a blank line
+}) {
   const children: Paragraph[] = [];
-  if (signatureBuffer) {
+  if (opts.signatureBuffer) {
     children.push(new Paragraph({
       spacing: { before: 400, after: 40 },
-      children: [new ImageRun({ data: signatureBuffer, transformation: { width: 130, height: 55 }, type: "jpg" })],
+      children: [new ImageRun({ data: opts.signatureBuffer, transformation: { width: 130, height: 55 }, type: "jpg" })],
     }));
   } else {
     children.push(new Paragraph({ spacing: { before: 400, after: 40 }, children: [new TextRun({ text: "_".repeat(35), size: 22, font: FONT })] }));
   }
   children.push(
     new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Signature", size: 20, font: FONT, color: GREY })] }),
-    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Name: " + "_".repeat(30), size: 22, font: FONT })] }),
-    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Title: " + roleTitle, size: 22, font: FONT })] }),
-    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Date: " + "_".repeat(30), size: 22, font: FONT })] }),
+    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Name: " + (opts.signerName || "_".repeat(30)), size: 22, font: FONT })] }),
+    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Title: " + opts.roleTitle, size: 22, font: FONT })] }),
+    new Paragraph({ spacing: { after: 10 }, children: [new TextRun({ text: "Date: " + (opts.dateText || "_".repeat(30)), size: 22, font: FONT })] }),
   );
   return children;
 }
@@ -319,9 +324,14 @@ export async function generateContractDocx(req: ContractRequest): Promise<Buffer
           h1("Signatures"),
           body("The Parties, by their authorised representatives, have executed this Agreement as of the Effective Date above."),
           new Paragraph({ spacing: { before: 300 }, children: [new TextRun({ text: "For and on behalf of SUIBING LIMITED (trading as Suibing IT Services):", bold: true, size: 22, font: FONT })] }),
-          ...signBlock("Director", signatureBuffer),
+          ...signBlock({
+            roleTitle: "Director/CEO",
+            signerName: "Sulaiman Ibrahim Inuwa",
+            signatureBuffer,
+            dateText: req.effectiveDate,
+          }),
           new Paragraph({ spacing: { before: 500 }, children: [new TextRun({ text: `For and on behalf of ${req.clientName}:`, bold: true, size: 22, font: FONT })] }),
-          ...signBlock("Authorised Representative"),
+          ...signBlock({ roleTitle: "Authorised Representative" }),
         ],
       },
     ],

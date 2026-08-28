@@ -61,6 +61,9 @@ export default function Console() {
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
+  const [mfaCheckDone, setMfaCheckDone] = useState(false);
+  const [mfaIncomplete, setMfaIncomplete] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("schools").select("*").order("name");
@@ -84,10 +87,29 @@ export default function Console() {
     loadCounts();
   }, [isOperator, tab]);
 
-  if (loading) return <Center>Loading…</Center>;
+  // MFA enforcement: if this account has a verified authenticator factor,
+  // the session must be at aal2 to be here. A session that only completed
+  // password auth (aal1) is not allowed into the console — this closes the
+  // gap where visiting /console directly could otherwise skip the MFA step.
+  useEffect(() => {
+    if (!isOperator) { setMfaCheckDone(true); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (cancelled) return;
+      const hasMfa = data?.currentLevel !== data?.nextLevel || data?.nextLevel === "aal2";
+      const incomplete = data?.nextLevel === "aal2" && data?.currentLevel !== "aal2";
+      setMfaIncomplete(!!incomplete);
+      setMfaCheckDone(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isOperator]);
+
+  if (loading || (isOperator && !mfaCheckDone)) return <Center>Loading…</Center>;
   if (!isConfigured) return <Center>Console not configured. Set Supabase environment variables.</Center>;
   if (!email) return <Redirect />;
   if (!isOperator) return <Center>This account is not an operator. <button className="btn ghost" onClick={signOut} style={{ marginLeft: 12 }}>Sign out</button></Center>;
+  if (mfaIncomplete) return <Redirect />;
 
   const active = schools.filter((s) => s.status === "active").length;
   const overdue = schools.filter((s) => s.paid_until && new Date(s.paid_until) < new Date()).length;
@@ -113,80 +135,98 @@ export default function Console() {
     if (selected?.id === s.id) setSelected({ ...s, status: next, blocked_reason: next === "disabled" ? reason : null });
   }
 
+  const NAV_ITEMS: { key: typeof tab; label: string; icon: string; badge?: number }[] = [
+    { key: "schools", label: "Schools", icon: "🏫" },
+    { key: "prospects", label: "Prospects", icon: "📋", badge: pendingProspects },
+    { key: "jobs", label: "Job applicants", icon: "👤", badge: pendingApplicants },
+    { key: "postings", label: "Job postings", icon: "📌" },
+    { key: "payments", label: "Payments", icon: "💳", badge: pendingPayments },
+    { key: "products", label: "Showcase", icon: "🗂️" },
+    { key: "testimonials", label: "Testimonials", icon: "💬" },
+  ];
+
   return (
     <div className="shell">
-      <header className="top">
-        <div className="brand"><img src="/logo.png" alt="Suibing IT Services" className="logo" /><span className="brandText">SUIBING <em>Bucket</em></span></div>
-        <div className="who">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sideBrand">
+          <img src="/logo.png" alt="Suibing IT Services" className="logo" />
+          <span className="brandText">SUIBING <em>Bucket</em></span>
+        </div>
+        <nav className="sideNav">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              className={tab === item.key ? "navItem on" : "navItem"}
+              onClick={() => { setTab(item.key); setSidebarOpen(false); }}
+            >
+              <span className="navIcon">{item.icon}</span>
+              <span className="navLabel">{item.label}</span>
+              {!!item.badge && item.badge > 0 && <span className="navBadge">{item.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sideFooter">
           <InstallButton />
-          <span className="whoEmail">{email}</span>
-          <button className="link" onClick={() => setShowPasswordModal(true)}>Set password</button>
-          <button className="link" onClick={() => setShowMfaModal(true)}>Authenticator</button>
-          <button className="link" onClick={() => setShowCompanySettings(true)}>Company settings</button>
-          <button className="link" onClick={signOut}>Sign out</button>
-        </div>
-      </header>
-
-      {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
-      {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
-      {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
-
-      <div className="stats">
-        <Stat label="Schools" value={schools.length.toString()} />
-        <Stat label="Active" value={active.toString()} />
-        <Stat label="Overdue" value={overdue.toString()} tone={overdue ? "warn" : undefined} />
-        <Stat label="Total students" value={totalStudents.toLocaleString()} />
-      </div>
-
-      <div className="tabsWrap">
-        <div className="tabs">
-          <button className={tab === "schools" ? "tab on" : "tab"} onClick={() => setTab("schools")}>Schools</button>
-          <button className={tab === "prospects" ? "tab on" : "tab"} onClick={() => setTab("prospects")}>
-            Prospects{pendingProspects > 0 ? <span className="dot">{pendingProspects}</span> : null}
-          </button>
-          <button className={tab === "jobs" ? "tab on" : "tab"} onClick={() => setTab("jobs")}>
-            Job applicants{pendingApplicants > 0 ? <span className="dot">{pendingApplicants}</span> : null}
-          </button>
-          <button className={tab === "postings" ? "tab on" : "tab"} onClick={() => setTab("postings")}>Job postings</button>
-          <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>
-            Payments{pendingPayments > 0 ? <span className="dot">{pendingPayments}</span> : null}
-          </button>
-          <button className={tab === "products" ? "tab on" : "tab"} onClick={() => setTab("products")}>Showcase</button>
-          <button className={tab === "testimonials" ? "tab on" : "tab"} onClick={() => setTab("testimonials")}>Testimonials</button>
-        </div>
-      </div>
-
-      {tab === "schools" && (
-        <>
-          <div className="bar">
-            <h2>Registered schools</h2>
-            <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
+          <div className="accountBox">
+            <div className="accountEmail">{email}</div>
+            <button className="sideLink" onClick={() => setShowPasswordModal(true)}>Set password</button>
+            <button className="sideLink" onClick={() => setShowMfaModal(true)}>Authenticator</button>
+            <button className="sideLink" onClick={() => setShowCompanySettings(true)}>Company settings</button>
+            <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
+        </div>
+      </aside>
 
-          <div className="card table-wrap">
-            <table>
-              <thead>
-                <tr><th>School</th><th>Status</th><th className="r">Students</th><th className="r">Records</th><th>Paid until</th><th></th></tr>
-              </thead>
-              <tbody>
-                {schools.length === 0 ? (
-                  <tr><td colSpan={6} className="empty">No schools yet. Click “Add school”.</td></tr>
-                ) : schools.map((s) => {
-                  const od = s.paid_until && new Date(s.paid_until) < new Date();
-                  return (
-                    <tr key={s.id}>
-                      <td data-label="School">
-                        <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
-                        <div className="key">{s.school_key}</div>
-                      </td>
-                      <td data-label="Status">
-                        <span className={`badge ${s.status}`}>{s.status}</span>
-                      </td>
-                      <td className="r tab-nums" data-label="Students">{s.students_count}</td>
-                      <td className="r tab-nums" data-label="Records">{s.records_count}</td>
-                      <td className={od ? "overdue" : ""} data-label="Paid until">{fmtDate(s.paid_until)}{od && " ⚠"}</td>
-                      <td className="r" data-label="">
-                        <button className={`mini ${s.status === "active" ? "danger" : "ok"}`} onClick={() => toggleStatus(s)} disabled={busy}>
+      {sidebarOpen && <div className="sideOverlay" onClick={() => setSidebarOpen(false)} />}
+
+      <div className="main">
+        <header className="top">
+          <button className="menuBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
+          <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
+        </header>
+
+        {showPasswordModal && <SetPasswordModal onClose={() => setShowPasswordModal(false)} />}
+        {showMfaModal && <MfaSettings onClose={() => setShowMfaModal(false)} />}
+        {showCompanySettings && <CompanySettings onClose={() => setShowCompanySettings(false)} />}
+
+        <div className="stats">
+          <Stat label="Schools" value={schools.length.toString()} />
+          <Stat label="Active" value={active.toString()} />
+          <Stat label="Overdue" value={overdue.toString()} tone={overdue ? "warn" : undefined} />
+          <Stat label="Total students" value={totalStudents.toLocaleString()} />
+        </div>
+
+        {tab === "schools" && (
+          <>
+            <div className="bar">
+              <h2>Registered schools</h2>
+              <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
+            </div>
+
+            <div className="card table-wrap">
+              <table>
+                <thead>
+                  <tr><th>School</th><th>Status</th><th className="r">Students</th><th className="r">Records</th><th>Paid until</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {schools.length === 0 ? (
+                    <tr><td colSpan={6} className="empty">No schools yet. Click “Add school”.</td></tr>
+                  ) : schools.map((s) => {
+                    const od = s.paid_until && new Date(s.paid_until) < new Date();
+                    return (
+                      <tr key={s.id}>
+                        <td data-label="School">
+                          <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
+                          <div className="key">{s.school_key}</div>
+                        </td>
+                        <td data-label="Status">
+                          <span className={`badge ${s.status}`}>{s.status}</span>
+                        </td>
+                        <td className="r tab-nums" data-label="Students">{s.students_count}</td>
+                        <td className="r tab-nums" data-label="Records">{s.records_count}</td>
+                        <td className={od ? "overdue" : ""} data-label="Paid until">{fmtDate(s.paid_until)}{od && " ⚠"}</td>
+                        <td className="r" data-label="">
+                          <button className={`mini ${s.status === "active" ? "danger" : "ok"}`} onClick={() => toggleStatus(s)} disabled={busy}>
                           {s.status === "active" ? "Disable" : "Enable"}
                         </button>
                         <button className="mini" onClick={() => setSelected(s)}>Manage</button>
@@ -207,6 +247,8 @@ export default function Console() {
       {tab === "products" && <ProductsManager />}
       {tab === "testimonials" && <TestimonialsManager />}
 
+      </div>
+
       {selected && (
         <SchoolDrawer
           school={selected}
@@ -220,35 +262,48 @@ export default function Console() {
       )}
 
       <style jsx>{`
-        .shell { max-width: 1080px; margin: 0 auto; padding: 16px 16px 80px; }
-        .top {
-          display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line);
-          position: sticky; top: 0; background: var(--paper-2); z-index: 40;
-          padding-top: 4px; gap: 10px;
+        .shell { display: flex; min-height: 100vh; }
+
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+          width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--line);
+          display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
         }
-        .brand { font-size: 16px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 8px; min-width: 0; }
-        .logo { width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0; }
-        .brandText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sideBrand { display: flex; align-items: center; gap: 10px; padding: 20px 18px; border-bottom: 1px solid var(--line); }
+        .logo { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; }
+        .brandText { font-size: 15px; font-weight: 800; color: var(--navy); white-space: nowrap; }
         .brandText em { font-weight: 400; font-style: normal; }
-        .who { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-        .whoEmail { display: none; }
-        .link { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; padding: 0; }
+
+        .sideNav { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+        .navItem {
+          display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+          background: none; border: none; padding: 10px 12px; border-radius: 9px;
+          font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+        }
+        .navItem:hover { background: var(--paper-2); }
+        .navItem.on { background: var(--navy-soft); color: var(--navy); }
+        .navIcon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+        .navLabel { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .navBadge { background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 7px; flex-shrink: 0; }
+
+        .sideFooter { border-top: 1px solid var(--line); padding: 14px 12px; }
+        .accountBox { margin-top: 10px; }
+        .accountEmail { font-size: 11.5px; color: var(--muted); padding: 0 4px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sideLink { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 7px 4px; border-radius: 6px; }
+        .sideLink:hover { background: var(--paper-2); color: var(--navy); }
+        .sideLink.signOut { color: var(--red); }
+
+        .sideOverlay { display: none; }
+
+        /* ---------- Main content ---------- */
+        .main { flex: 1; min-width: 0; padding: 16px 20px 80px; }
+        .top {
+          display: none; /* only shown on mobile, see below */
+        }
 
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
-
-        .tabsWrap { margin: 0 -16px 18px; padding: 0 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; border-bottom: 1px solid var(--line); }
-        .tabsWrap::-webkit-scrollbar { display: none; }
-        .tabs { display: flex; gap: 2px; width: max-content; }
-        .tab {
-          position: relative; background: none; border: none; padding: 10px 14px; font-size: 13.5px;
-          font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
-          margin-bottom: -1px; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
-        }
-        .tab.on { color: var(--navy); border-bottom-color: var(--navy); }
-        .tab .dot { background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; }
 
         h2 { font-size: 17px; font-weight: 700; color: var(--ink); }
         .table-wrap { overflow-x: auto; }
@@ -268,11 +323,22 @@ export default function Console() {
         .mini.danger { color: var(--red); border-color: var(--red); }
         .mini.ok { color: var(--green); border-color: var(--green); }
 
-        @media (max-width: 640px) {
-          .shell { padding: 12px 12px 90px; }
-          .brand { font-size: 14.5px; }
-          .brandText { max-width: 140px; }
-          .who { gap: 6px; }
+        @media (max-width: 900px) {
+          .shell { display: block; }
+          .sidebar {
+            position: fixed; top: 0; left: 0; height: 100vh; z-index: 200;
+            transform: translateX(-100%); transition: transform 0.25s ease;
+            box-shadow: 8px 0 24px rgba(20,28,45,0.15);
+          }
+          .sidebar.open { transform: translateX(0); }
+          .sideOverlay { display: block; position: fixed; inset: 0; background: rgba(15,20,32,0.5); z-index: 190; }
+          .main { padding: 12px 12px 90px; }
+          .top {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
+          }
+          .menuBtn { background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; width: 38px; height: 38px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+          .topTitle { font-size: 16px; font-weight: 700; color: var(--ink); }
           .stats { grid-template-columns: 1fr 1fr; gap: 8px; }
           h2 { font-size: 16px; }
           /* Turn the schools table into stacked cards on small screens */
