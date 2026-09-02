@@ -145,6 +145,7 @@ function ComplaintDrawer({ complaint, schoolName, operatorEmail, onClose, onChan
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [status, setStatus] = useState(complaint.status);
+  const [confirming, setConfirming] = useState<false | "reply" | "resolve">(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -157,14 +158,19 @@ function ComplaintDrawer({ complaint, schoolName, operatorEmail, onClose, onChan
 
   useEffect(() => { load(); }, [load]);
 
-  async function sendReply(markResolved: boolean) {
+  function startSend(markResolved: boolean) {
     setErr(null);
     if (!reply.trim()) { setErr("Enter a reply."); return; }
+    setConfirming(markResolved ? "resolve" : "reply");
+  }
+
+  async function confirmSend(markResolved: boolean) {
     setBusy(true);
     const { error } = await supabase.rpc("reply_to_complaint_as_operator", {
       p_complaint_id: complaint.id, p_message: reply.trim(), p_by: operatorEmail, p_mark_resolved: markResolved,
     });
     setBusy(false);
+    setConfirming(false);
     if (error) { setErr(error.message); return; }
     setReply("");
     if (markResolved) setStatus("resolved");
@@ -205,18 +211,34 @@ function ComplaintDrawer({ complaint, schoolName, operatorEmail, onClose, onChan
         </div>
 
         <div className="replyBox">
-          <textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type a reply…" />
+          <textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type a reply…" disabled={!!confirming} />
           {err && <div className="err">{err}</div>}
-          <div className="replyActions">
-            <button className="btn ghost" type="button" onClick={toggleStatus} disabled={busy}>
-              {status === "open" ? "Mark resolved (no reply)" : "Reopen"}
-            </button>
-            <button className="btn ok" type="button" onClick={() => sendReply(false)} disabled={busy}>{busy ? "Sending…" : "Send reply"}</button>
-          </div>
-          {status === "open" && (
-            <button className="btn" type="button" onClick={() => sendReply(true)} disabled={busy} style={{ width: "100%", marginTop: 8 }}>
-              Send reply & mark resolved
-            </button>
+
+          {confirming ? (
+            <div className="confirmBox">
+              <div className="confirmLabel">Send this to {schoolName}?</div>
+              <div className="confirmPreview">{reply.trim()}</div>
+              <div className="replyActions">
+                <button className="btn ghost" type="button" onClick={() => setConfirming(false)} disabled={busy}>Edit</button>
+                <button className="btn ok" type="button" onClick={() => confirmSend(confirming === "resolve")} disabled={busy}>
+                  {busy ? "Sending…" : confirming === "resolve" ? "Confirm send & resolve" : "Confirm send"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="replyActions">
+                <button className="btn ghost" type="button" onClick={toggleStatus} disabled={busy}>
+                  {status === "open" ? "Mark resolved (no reply)" : "Reopen"}
+                </button>
+                <button className="btn ok" type="button" onClick={() => startSend(false)} disabled={busy}>Send reply</button>
+              </div>
+              {status === "open" && (
+                <button className="btn" type="button" onClick={() => startSend(true)} disabled={busy} style={{ width: "100%", marginTop: 8 }}>
+                  Send reply & mark resolved
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -237,6 +259,9 @@ function ComplaintDrawer({ complaint, schoolName, operatorEmail, onClose, onChan
           .bubbleBody { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
           .bubbleTime { font-size: 10px; opacity: 0.6; margin-top: 4px; }
           .replyBox { border-top: 1px solid var(--line); padding-top: 14px; }
+          .confirmBox { background: #FBF0DC; border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+          .confirmLabel { font-size: 12.5px; font-weight: 700; color: var(--amber); margin-bottom: 8px; }
+          .confirmPreview { font-size: 13px; color: var(--ink); line-height: 1.5; white-space: pre-wrap; background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
           .replyBox textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; resize: vertical; box-sizing: border-box; }
           .replyActions { display: flex; gap: 10px; margin-top: 10px; }
           .replyActions .btn { flex: 1; }

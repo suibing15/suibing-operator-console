@@ -15,6 +15,7 @@ import CompanySettings from "@/app/components/CompanySettings";
 import FactoryReset from "@/app/components/FactoryReset";
 import ComplaintsQueue from "@/app/components/ComplaintsQueue";
 import BroadcastAdmin from "@/app/components/BroadcastAdmin";
+import OperatorsAdmin from "@/app/components/OperatorsAdmin";
 
 type School = {
   id: string;
@@ -57,7 +58,24 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | "broadcast" | null>(null);
+  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | "broadcast" | "operators" | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
+
+  async function downloadFullBackup() {
+    setBackingUp(true);
+    const { data, error } = await supabase.rpc("export_full_backup");
+    setBackingUp(false);
+    if (error) { alert("Backup failed: " + error.message); return; }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suibing_full_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
   const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
@@ -184,6 +202,8 @@ export default function Console() {
             <button className="sideLink" onClick={() => { setAccountModal("mfa"); setSidebarOpen(false); }}>Authenticator</button>
             <button className="sideLink" onClick={() => { setAccountModal("settings"); setSidebarOpen(false); }}>Company settings</button>
             <button className="sideLink" onClick={() => { setAccountModal("broadcast"); setSidebarOpen(false); }}>Broadcast announcement</button>
+            <button className="sideLink" onClick={() => { setAccountModal("operators"); setSidebarOpen(false); }}>Operators</button>
+            <button className="sideLink" onClick={downloadFullBackup} disabled={backingUp}>{backingUp ? "Preparing backup…" : "Download full backup"}</button>
             <button className="sideLink" style={{ color: "var(--red)" }} onClick={() => { setAccountModal("reset"); setSidebarOpen(false); }}>Factory reset</button>
             <button className="sideLink signOut" onClick={signOut}>Sign out</button>
           </div>
@@ -275,6 +295,7 @@ export default function Console() {
       {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
       {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
       {accountModal === "broadcast" && <BroadcastAdmin onClose={() => setAccountModal(null)} />}
+      {accountModal === "operators" && email && <OperatorsAdmin currentEmail={email} onClose={() => setAccountModal(null)} />}
       {accountModal === "reset" && <FactoryReset operatorEmail={email} onClose={() => { setAccountModal(null); load(); }} />}
 
       {selected && (
