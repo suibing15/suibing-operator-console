@@ -45,7 +45,14 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const { data, error } = await supabase.from("payment_submissions").select("*").order("created_at", { ascending: false });
+    // Deliberately excludes receipt_data (the full base64-encoded proof image) —
+    // that column can be large and isn't needed until a specific payment is
+    // opened, so including it here was making the whole list slow to load as
+    // submissions accumulate. Fetched separately in openRow() below instead.
+    const { data, error } = await supabase
+      .from("payment_submissions")
+      .select("id, school_id, school_key, invoice_id, invoice_number, amount, payment_date, note, receipt_mimetype, receipt_filename, receipt_number, status, reviewer_note, reviewed_by, reviewed_at, created_at")
+      .order("created_at", { ascending: false });
     if (error) { setLoadError(error.message); setRows([]); return; }
     setRows((data as PaymentSubmission[]) ?? []);
     const { data: sc, error: scErr } = await supabase.from("schools").select("id,name");
@@ -56,6 +63,17 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function openRow(row: PaymentSubmission) {
+    // The list load intentionally omits receipt_data; fetch it now, only
+    // for the one payment being opened.
+    setSelected(row);
+    if (row.receipt_data) return; // already have it (e.g. re-opening after a review action)
+    const { data } = await supabase.from("payment_submissions").select("receipt_data").eq("id", row.id).single();
+    if (data?.receipt_data) {
+      setSelected((cur) => (cur && cur.id === row.id ? { ...cur, receipt_data: data.receipt_data } : cur));
+    }
+  }
 
   const visible = filter === "all" ? rows : rows.filter((r) => r.status === filter);
   const pendingCount = rows.filter((r) => r.status === "pending").length;
@@ -112,14 +130,14 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
             {visible.length === 0 ? (
               <tr><td colSpan={7} className="empty">Nothing here.</td></tr>
             ) : visible.map((p) => (
-              <tr key={p.id} onClick={() => setSelected(p)}>
+              <tr key={p.id} onClick={() => openRow(p)}>
                 <td data-label="School">{schools[p.school_id] ?? p.school_key}</td>
                 <td className="mono" data-label="Invoice">{p.invoice_number ?? "—"}</td>
                 <td data-label="Amount">{p.amount != null ? `NGN ${Number(p.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}` : "—"}</td>
                 <td data-label="Date">{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-GB") : "—"}</td>
                 <td data-label="Status"><span className={`badge ${p.status}`}>{p.status}</span></td>
                 <td data-label="Submitted">{new Date(p.created_at).toLocaleDateString("en-GB")}</td>
-                <td className="r" data-label=""><button className="mini" onClick={(e) => { e.stopPropagation(); setSelected(p); }}>Review</button></td>
+                <td className="r" data-label=""><button className="mini" onClick={(e) => { e.stopPropagation(); openRow(p); }}>Review</button></td>
               </tr>
             ))}
           </tbody>
@@ -151,7 +169,11 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
               <div className="msgBox note"><div className="l">Your review note</div><div>{selected.reviewer_note}</div></div>
             )}
 
-            <a className="receiptBtn" href={receiptUrl(selected.receipt_data, selected.receipt_mimetype)} target="_blank" rel="noreferrer" download={selected.receipt_filename}>📄 View uploaded proof</a>
+            {selected.receipt_data ? (
+              <a className="receiptBtn" href={receiptUrl(selected.receipt_data, selected.receipt_mimetype)} target="_blank" rel="noreferrer" download={selected.receipt_filename}>📄 View uploaded proof</a>
+            ) : (
+              <div className="receiptBtn loading" aria-busy="true">Loading proof…</div>
+            )}
 
             {selected.status === "confirmed" && selected.receipt_number && (
               <button className="receiptBtn ok" type="button" onClick={() => downloadOfficialReceipt(selected, schools)}>
@@ -234,6 +256,7 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
         .msgBox.note { background: var(--navy-soft); border-color: transparent; }
         .l { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
         .receiptBtn { display: block; text-align: center; background: var(--navy); color: #fff; text-decoration: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; margin: 16px 0; border: none; width: 100%; cursor: pointer; font-family: inherit; }
+        .receiptBtn.loading { background: var(--paper-2); color: var(--muted); cursor: default; }
         .receiptBtn.ok { background: var(--green); margin-top: 0; }
         .actions { display: flex; gap: 10px; margin-top: 8px; }
         @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } .drawer { padding: 18px; } }
