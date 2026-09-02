@@ -26,6 +26,7 @@
 -- Not granted to anon/authenticated directly — only callable from
 -- inside other security definer functions in this file.
 -- ---------------------------------------------------------------------
+drop function if exists public.verify_school_pin(text, text);
 create or replace function public.verify_school_pin(p_school_key text, p_pin text)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
@@ -34,8 +35,8 @@ declare
   v_school_id uuid;
 begin
   select count(*) into v_recent_failures
-  from public.portal_login_attempts
-  where school_key = v_key and succeeded = false and created_at > now() - interval '15 minutes';
+  from public.portal_login_attempts pla
+  where pla.school_key = v_key and pla.succeeded = false and pla.created_at > now() - interval '15 minutes';
 
   if v_recent_failures >= 8 then
     raise exception 'Too many failed attempts for this school. Please wait 15 minutes before trying again.';
@@ -56,6 +57,7 @@ end; $$;
 -- The 10 functions below, each re-pointed at verify_school_pin().
 -- ---------------------------------------------------------------------
 
+drop function if exists public.submit_payment(text, text, text, numeric, date, text, text, text, text);
 create or replace function public.submit_payment(
   p_school_key text, p_pin text, p_invoice_number text, p_amount numeric,
   p_payment_date date, p_note text,
@@ -88,6 +90,7 @@ begin
   return v_new_id;
 end; $$;
 
+drop function if exists public.list_school_payments(text, text);
 create or replace function public.list_school_payments(p_school_key text, p_pin text)
 returns table (
   id uuid, invoice_number text, amount numeric, payment_date date, note text,
@@ -108,6 +111,7 @@ begin
   order by p.created_at desc;
 end; $$;
 
+drop function if exists public.list_school_invoices_portal(text, text);
 create or replace function public.list_school_invoices_portal(p_school_key text, p_pin text)
 returns table (
   invoice_number text, invoice_type text, line_items jsonb, currency text,
@@ -126,6 +130,7 @@ begin
   order by i.issued_at desc;
 end; $$;
 
+drop function if exists public.list_school_activity_portal(text, text, date, date);
 create or replace function public.list_school_activity_portal(
   p_school_key text, p_pin text, p_from date default null, p_to date default null
 ) returns table (event text, detail text, amount numeric, at timestamptz)
@@ -149,6 +154,7 @@ begin
   limit 500;
 end; $$;
 
+drop function if exists public.get_payment_receipt(text, text, text);
 create or replace function public.get_payment_receipt(p_school_key text, p_pin text, p_receipt_number text)
 returns table (
   receipt_number text, school_name text, invoice_number text, amount numeric,
@@ -166,6 +172,7 @@ begin
   where p.school_id = v_school_id and p.receipt_number = p_receipt_number and p.status = 'confirmed';
 end; $$;
 
+drop function if exists public.change_school_pin(text, text, text);
 create or replace function public.change_school_pin(
   p_school_key text, p_current_pin text, p_new_pin text
 ) returns void language plpgsql security definer set search_path = public as $$
@@ -185,6 +192,7 @@ begin
   values (v_id, v_key, 'portal_pin_changed_by_school', 'School changed their own portal PIN');
 end; $$;
 
+drop function if exists public.submit_complaint(text, text, text, text);
 create or replace function public.submit_complaint(
   p_school_key text, p_pin text, p_subject text, p_message text
 ) returns uuid language plpgsql security definer set search_path = public as $$
@@ -207,6 +215,7 @@ begin
   return v_complaint_id;
 end; $$;
 
+drop function if exists public.list_school_complaints(text, text);
 create or replace function public.list_school_complaints(p_school_key text, p_pin text)
 returns table (
   id uuid, subject text, status text, created_at timestamptz, updated_at timestamptz, message_count int
@@ -224,6 +233,7 @@ begin
   order by c.updated_at desc;
 end; $$;
 
+drop function if exists public.get_complaint_thread(text, text, uuid);
 create or replace function public.get_complaint_thread(p_school_key text, p_pin text, p_complaint_id uuid)
 returns table (
   id uuid, sender text, body text, created_at timestamptz
@@ -241,6 +251,7 @@ begin
   order by m.created_at asc;
 end; $$;
 
+drop function if exists public.reply_to_complaint_as_school(text, text, uuid, text);
 create or replace function public.reply_to_complaint_as_school(
   p_school_key text, p_pin text, p_complaint_id uuid, p_message text
 ) returns void language plpgsql security definer set search_path = public as $$

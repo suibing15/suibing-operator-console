@@ -48,8 +48,8 @@ declare
   v_matched public.schools%rowtype;
 begin
   select count(*) into v_recent_failures
-  from public.portal_login_attempts
-  where school_key = v_key and succeeded = false and created_at > now() - interval '15 minutes';
+  from public.portal_login_attempts pla
+  where pla.school_key = v_key and pla.succeeded = false and pla.created_at > now() - interval '15 minutes';
 
   if v_recent_failures >= 8 then
     raise exception 'Too many failed attempts. Please wait 15 minutes before trying again.';
