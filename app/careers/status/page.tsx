@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import WhatsAppButton from "@/app/components/WhatsAppButton";
 import BroadcastBar from "@/app/components/BroadcastBar";
+import VisitorTracker from "@/app/components/VisitorTracker";
 
 type Status = {
   form_number: string; job_title_snap: string; status: "pending" | "needs_correction" | "rejected" | "approved";
@@ -44,6 +45,7 @@ export default function CareersStatus() {
   return (
     <div className="wrap">
       <BroadcastBar />
+      <VisitorTracker />
       <div className="card box">
         <a href="/" className="brand" title="Back to home"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></a>
         <p className="sub">Check job application status</p>
@@ -117,6 +119,7 @@ function ResubmitForm({ form, code, initial, onDone, onCancel }:
   return (
     <div className="wrap">
       <BroadcastBar />
+      <VisitorTracker />
       <div className="card box">
         <a href="/" className="brand" title="Back to home"><img src="/logo.png" alt="Suibing IT Services" className="logo" />SUIBING <span>IT Services</span></a>
         <p className="sub">Update your application — {form}</p>

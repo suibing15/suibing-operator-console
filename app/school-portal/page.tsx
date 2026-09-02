@@ -178,10 +178,17 @@ function PortalLogin({ onLogin }: { onLogin: (s: Session) => void }) {
 }
 
 function PortalDashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account" | "guide">("invoices");
+  const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account" | "guide" | "notifications">("invoices");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  async function loadUnreadCount() {
+    const { data } = await supabase.rpc("list_school_notifications", { p_school_key: session.schoolKey, p_pin: session.pin });
+    const rows = (data as { read_at: string | null }[]) ?? [];
+    setUnreadCount(rows.filter((r) => !r.read_at).length);
+  }
 
   async function loadProfile() {
     const { data } = await supabase.rpc("school_portal_login", { p_school_key: session.schoolKey, p_pin: session.pin });
@@ -190,7 +197,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
     setLoading(false);
   }
 
-  useEffect(() => { loadProfile(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProfile(); loadUnreadCount(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function dismissWarning() {
     await supabase.rpc("dismiss_portal_warning", { p_school_key: session.schoolKey, p_pin: session.pin });
@@ -205,9 +212,10 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
     </div>
   );
 
-  const NAV_ITEMS: { key: typeof tab; label: string; icon: string }[] = [
+  const NAV_ITEMS: { key: typeof tab; label: string; icon: string; badge?: number }[] = [
     { key: "invoices", label: "Invoices", icon: "🧾" },
     { key: "payments", label: "Submit Payment", icon: "💳" },
+    { key: "notifications", label: "Notifications", icon: "🔔", badge: unreadCount },
     { key: "activity", label: "Activity", icon: "📜" },
     { key: "complaints", label: "Support", icon: "🎫" },
     { key: "account", label: "Account", icon: "⚙️" },
@@ -230,6 +238,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
             >
               <span className="navIcon">{item.icon}</span>
               <span className="navLabel">{item.label}</span>
+              {!!item.badge && <span className="navBadge">{item.badge}</span>}
             </button>
           ))}
         </nav>
@@ -286,6 +295,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
 
         {tab === "invoices" && <InvoicesTab session={session} />}
         {tab === "payments" && <PaymentsTab session={session} />}
+        {tab === "notifications" && <NotificationsTab session={session} onRead={loadUnreadCount} />}
         {tab === "activity" && <ActivityTab session={session} />}
         {tab === "complaints" && <ComplaintsTab session={session} />}
         {tab === "account" && <AccountTab session={session} />}
@@ -475,6 +485,53 @@ function PaymentsTab({ session }: { session: Session }) {
                     ⬇ Download official receipt ({p.receipt_number})
                   </button>
                 )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type NotificationRow = { id: string; kind: string; title: string; body: string | null; read_at: string | null; created_at: string };
+
+function NotificationsTab({ session, onRead }: { session: Session; onRead: () => void }) {
+  const [items, setItems] = useState<NotificationRow[] | null>(null);
+
+  async function load() {
+    const { data } = await supabase.rpc("list_school_notifications", { p_school_key: session.schoolKey, p_pin: session.pin });
+    setItems((data as NotificationRow[]) ?? []);
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function markRead(id: string) {
+    await supabase.rpc("mark_notification_read", { p_school_key: session.schoolKey, p_pin: session.pin, p_id: id });
+    load();
+    onRead();
+  }
+
+  const kindIcon: Record<string, string> = {
+    payment_confirmed: "✅", payment_rejected: "⚠️", complaint_reply: "🎫", pin_reset: "🔑", broadcast: "📣",
+  };
+
+  return (
+    <div className="tabPanel">
+      {items === null ? (
+        <p className="muted">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="muted">No notifications yet. You'll see updates here when we confirm a payment or reply to a complaint.</p>
+      ) : (
+        <div className="cardList">
+          {items.map((n) => (
+            <div key={n.id} className={`rowCard ${!n.read_at ? "unread" : ""}`} onClick={() => !n.read_at && markRead(n.id)} style={{ cursor: n.read_at ? "default" : "pointer" }}>
+              <div className="rowTop">
+                <div>
+                  <div className="rowTitle">{kindIcon[n.kind] ?? "🔔"} {n.title}</div>
+                  {n.body && <div className="rowSub" style={{ marginTop: 4 }}>{n.body}</div>}
+                  <div className="rowSub" style={{ marginTop: 4 }}>{new Date(n.created_at).toLocaleString("en-GB")}</div>
+                </div>
+                {!n.read_at && <span className="pill amber">New</span>}
               </div>
             </div>
           ))}
@@ -833,6 +890,7 @@ const dashStyles = `
   .navItem.on { background: var(--navy-soft); color: var(--navy); }
   .navIcon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
   .navLabel { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .navBadge { background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; flex-shrink: 0; }
 
   .sideFooter { border-top: 1px solid var(--line); padding: 14px 12px; }
   .accountBox { margin-top: 10px; }
@@ -870,6 +928,7 @@ const dashStyles = `
   .muted { color: var(--muted); font-size: 14px; }
   .cardList { display: flex; flex-direction: column; gap: 12px; }
   .rowCard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px; transition: box-shadow 0.2s; }
+  .rowCard.unread { border-color: var(--navy); background: var(--navy-soft); }
   .guideIntro { font-size: 13.5px; color: var(--ink-2); margin-bottom: 16px; }
   .guideCard { display: flex; gap: 14px; align-items: flex-start; }
   .guideNum { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }

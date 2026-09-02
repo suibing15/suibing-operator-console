@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import BroadcastBar from "@/app/components/BroadcastBar";
+import VisitorTracker from "@/app/components/VisitorTracker";
 
 type InvoiceRow = {
   invoice_number: string;
@@ -72,6 +73,7 @@ export default function InvoiceStatus() {
   return (
     <div className="page">
       <BroadcastBar />
+      <VisitorTracker />
       <div className="split">
         <aside className="panel">
           <div className="panelInner">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import BroadcastBar from "@/app/components/BroadcastBar";
+import VisitorTracker from "@/app/components/VisitorTracker";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -11,6 +12,7 @@ export default function TermsOfService() {
   return (
     <div className="legal">
       <BroadcastBar />
+      <VisitorTracker />
       <div className="legalInner">
         <a href="/" className="back">← Back to home</a>
         <h1>Terms of Service</h1>

@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import BroadcastBar from "@/app/components/BroadcastBar";
+import VisitorTracker from "@/app/components/VisitorTracker";
 
 const PRODUCTS = [
   { value: "bucket", label: "SUIBING Bucket (school records)" },
@@ -71,6 +72,7 @@ function ApplyInner() {
   return (
     <div className="page">
       <BroadcastBar />
+      <VisitorTracker />
       <div className="split">
         <aside className="panel">
           <div className="panelInner">

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import WhatsAppButton from "@/app/components/WhatsAppButton";
 import BroadcastBar from "@/app/components/BroadcastBar";
+import VisitorTracker from "@/app/components/VisitorTracker";
 
 type Product = {
   slug: string;
@@ -50,6 +51,7 @@ export default function Home() {
   return (
     <div className="home">
       <BroadcastBar />
+      <VisitorTracker />
       <header className="hero">
         <div className="heroBg" aria-hidden="true">
           <span className="blob b1" />

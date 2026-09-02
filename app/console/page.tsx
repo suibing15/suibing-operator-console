@@ -16,6 +16,7 @@ import FactoryReset from "@/app/components/FactoryReset";
 import ComplaintsQueue from "@/app/components/ComplaintsQueue";
 import BroadcastAdmin from "@/app/components/BroadcastAdmin";
 import OperatorsAdmin from "@/app/components/OperatorsAdmin";
+import VisitorsPanel from "@/app/components/VisitorsPanel";
 
 type School = {
   id: string;
@@ -76,7 +77,7 @@ export default function Console() {
     a.remove();
     URL.revokeObjectURL(url);
   }
-  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints">("schools");
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints" | "visitors">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
@@ -172,6 +173,7 @@ export default function Console() {
     { key: "products", label: "Showcase", icon: "🗂️" },
     { key: "testimonials", label: "Testimonials", icon: "💬" },
     { key: "complaints", label: "Support", icon: "🎫", badge: openComplaints },
+    { key: "visitors", label: "Visitors", icon: "📊" },
   ];
 
   return (
@@ -288,6 +290,7 @@ export default function Console() {
       {tab === "products" && <ProductsManager />}
       {tab === "testimonials" && <TestimonialsManager />}
       {tab === "complaints" && email && <ComplaintsQueue operatorEmail={email} />}
+      {tab === "visitors" && <VisitorsPanel />}
 
       </div>
 
