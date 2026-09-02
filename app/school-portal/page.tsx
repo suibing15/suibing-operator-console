@@ -181,6 +181,7 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
   const [tab, setTab] = useState<"invoices" | "payments" | "activity" | "complaints" | "account" | "guide">("invoices");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function loadProfile() {
     const { data } = await supabase.rpc("school_portal_login", { p_school_key: session.schoolKey, p_pin: session.pin });
@@ -196,71 +197,100 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
     loadProfile();
   }
 
-  if (loading) return <div className="dashWrap"><p className="loadingMsg">Loading your account…</p><style jsx>{dashStyles}</style></div>;
+  if (loading) return <div className="loadingScreen"><p className="loadingMsg">Loading your account…</p><style jsx>{dashStyles}</style></div>;
   if (!profile) return (
-    <div className="dashWrap">
+    <div className="loadingScreen">
       <p className="loadingMsg">Session expired or access was revoked. <button className="linkBtn" onClick={onLogout}>Sign in again</button></p>
       <style jsx>{dashStyles}</style>
     </div>
   );
 
+  const NAV_ITEMS: { key: typeof tab; label: string; icon: string }[] = [
+    { key: "invoices", label: "Invoices", icon: "🧾" },
+    { key: "payments", label: "Submit Payment", icon: "💳" },
+    { key: "activity", label: "Activity", icon: "📜" },
+    { key: "complaints", label: "Support", icon: "🎫" },
+    { key: "account", label: "Account", icon: "⚙️" },
+    { key: "guide", label: "Guide", icon: "❓" },
+  ];
+
   return (
-    <div className="dashWrap">
-      <header className="dashHeader">
-        <div className="brand"><img src="/logo.png" alt="" className="logoSm" />SUIBING <span>School Portal</span></div>
-        <div className="who">{profile.name} <button className="linkBtn" onClick={onLogout}>Sign out</button></div>
-      </header>
+    <div className="shell">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sideBrand">
+          <img src="/logo.png" alt="" className="logo" />
+          <span className="brandText">SUIBING <em>School Portal</em></span>
+        </div>
+        <nav className="sideNav">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              className={tab === item.key ? "navItem on" : "navItem"}
+              onClick={() => { setTab(item.key); setSidebarOpen(false); }}
+            >
+              <span className="navIcon">{item.icon}</span>
+              <span className="navLabel">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sideFooter">
+          <div className="accountBox">
+            <div className="accountEmail">{profile.name}</div>
+            <button className="sideLink signOut" onClick={onLogout}>Sign out</button>
+          </div>
+        </div>
+      </aside>
 
-      {profile.status === "disabled" && (
-        <div className="blockedBanner">
-          <strong>⚠ Your access is currently paused.</strong>
-          <p>{profile.blocked_reason || "No reason was provided. Please contact us for details."}</p>
-          <p className="contactLine">Contact Suibing IT Services: suibing15@gmail.com · +234 706 859 5598</p>
-        </div>
-      )}
+      {sidebarOpen && <div className="sideOverlay" onClick={() => setSidebarOpen(false)} />}
 
-      {profile.portal_warning && (
-        <div className="warningBanner">
-          <strong>Notice from Suibing IT Services</strong>
-          <p>{profile.portal_warning}</p>
-          <button className="btn ghost small" onClick={dismissWarning}>Dismiss</button>
-        </div>
-      )}
+      <div className="main">
+        <header className="top">
+          <button className="menuBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
+          <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
+        </header>
 
-      <div className="statsStrip">
-        <div className="statCard">
-          <span className="statLabel">Students tracked</span>
-          <span className="statValue">{profile.students_count.toLocaleString()}</span>
+        {profile.status === "disabled" && (
+          <div className="blockedBanner">
+            <strong>⚠ Your access is currently paused.</strong>
+            <p>{profile.blocked_reason || "No reason was provided. Please contact us for details."}</p>
+            <p className="contactLine">Contact Suibing IT Services: suibing15@gmail.com · +234 706 859 5598</p>
+          </div>
+        )}
+
+        {profile.portal_warning && (
+          <div className="warningBanner">
+            <strong>Notice from Suibing IT Services</strong>
+            <p>{profile.portal_warning}</p>
+            <button className="btn ghost small" onClick={dismissWarning}>Dismiss</button>
+          </div>
+        )}
+
+        <div className="statsStrip">
+          <div className="statCard">
+            <span className="statLabel">Students tracked</span>
+            <span className="statValue">{profile.students_count.toLocaleString()}</span>
+          </div>
+          <div className="statCard">
+            <span className="statLabel">Records on file</span>
+            <span className="statValue">{profile.records_count.toLocaleString()}</span>
+          </div>
+          <div className="statCard statUpdated">
+            <span className="statLabel">Last updated</span>
+            <span className="statValueSmall">
+              {profile.counts_updated
+                ? new Date(profile.counts_updated).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                : "Not yet updated"}
+            </span>
+          </div>
         </div>
-        <div className="statCard">
-          <span className="statLabel">Records on file</span>
-          <span className="statValue">{profile.records_count.toLocaleString()}</span>
-        </div>
-        <div className="statCard statUpdated">
-          <span className="statLabel">Last updated</span>
-          <span className="statValueSmall">
-            {profile.counts_updated
-              ? new Date(profile.counts_updated).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-              : "Not yet updated"}
-          </span>
-        </div>
+
+        {tab === "invoices" && <InvoicesTab session={session} />}
+        {tab === "payments" && <PaymentsTab session={session} />}
+        {tab === "activity" && <ActivityTab session={session} />}
+        {tab === "complaints" && <ComplaintsTab session={session} />}
+        {tab === "account" && <AccountTab session={session} />}
+        {tab === "guide" && <GuideTab />}
       </div>
-
-      <div className="tabs">
-        <button className={tab === "invoices" ? "tab on" : "tab"} onClick={() => setTab("invoices")}>Invoices</button>
-        <button className={tab === "payments" ? "tab on" : "tab"} onClick={() => setTab("payments")}>Submit Payment</button>
-        <button className={tab === "activity" ? "tab on" : "tab"} onClick={() => setTab("activity")}>Activity</button>
-        <button className={tab === "complaints" ? "tab on" : "tab"} onClick={() => setTab("complaints")}>Support</button>
-        <button className={tab === "account" ? "tab on" : "tab"} onClick={() => setTab("account")}>Account</button>
-        <button className={tab === "guide" ? "tab on" : "tab"} onClick={() => setTab("guide")}>? Guide</button>
-      </div>
-
-      {tab === "invoices" && <InvoicesTab session={session} />}
-      {tab === "payments" && <PaymentsTab session={session} />}
-      {tab === "activity" && <ActivityTab session={session} />}
-      {tab === "complaints" && <ComplaintsTab session={session} />}
-      {tab === "account" && <AccountTab session={session} />}
-      {tab === "guide" && <GuideTab />}
 
       <WhatsAppButton />
       <style jsx>{dashStyles}</style>
@@ -762,32 +792,77 @@ const dashStyles = `
   .bubbleTime { font-size: 10px; opacity: 0.6; margin-top: 4px; }
   .replyBox { border-top: 1px solid var(--line); padding-top: 14px; }
   .replyBox textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; resize: vertical; box-sizing: border-box; }
-  .dashWrap { min-height: 100vh; background: var(--paper-2); padding: 24px; }
+  .loadingScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--paper-2); }
   .loadingMsg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
   .linkBtn { background: none; border: none; color: var(--navy); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; margin-left: 4px; }
-  .dashHeader { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
-  .brand { font-size: 17px; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 10px; }
-  .brand span { font-weight: 500; color: var(--ink-2); }
-  .logoSm { width: 28px; height: 28px; border-radius: 6px; }
-  .who { font-size: 13px; color: var(--muted); }
-  .blockedBanner { max-width: 900px; margin: 0 auto 16px; background: var(--red-soft); border-radius: var(--radius-sm); padding: 16px 18px; }
+  .blockedBanner { margin: 0 0 16px; background: var(--red-soft); border-radius: var(--radius-sm); padding: 16px 18px; }
   .blockedBanner strong { color: var(--red); font-size: 14px; display: block; margin-bottom: 6px; }
   .blockedBanner p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 4px; }
   .contactLine { font-weight: 600; }
-  .warningBanner { max-width: 900px; margin: 0 auto 16px; background: #FBF0DC; border-radius: var(--radius-sm); padding: 16px 18px; }
+  .warningBanner { margin: 0 0 16px; background: #FBF0DC; border-radius: var(--radius-sm); padding: 16px 18px; }
   .warningBanner strong { color: var(--amber); font-size: 14px; display: block; margin-bottom: 6px; }
   .warningBanner p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 10px; }
-  .statsStrip { max-width: 900px; margin: 0 auto 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .statsStrip { margin: 0 0 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .statCard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
   .statLabel { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
   .statValue { font-size: 24px; font-weight: 800; color: var(--navy); }
   .statValueSmall { font-size: 14px; font-weight: 700; color: var(--ink); }
   .statCard.statUpdated { background: var(--paper-2); }
   @media (max-width: 560px) { .statsStrip { grid-template-columns: 1fr; } }
-  .tabs { max-width: 900px; margin: 0 auto 20px; display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
-  .tab { background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-  .tab.on { color: var(--navy); border-bottom-color: var(--navy); }
-  .tabPanel { max-width: 900px; margin: 0 auto; }
+  .tabPanel { max-width: 900px; }
+
+  /* ---------- Sidebar (matches operator console layout) ---------- */
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
+  }
+  .sideBrand { display: flex; align-items: center; gap: 10px; padding: 20px 18px; border-bottom: 1px solid var(--line); }
+  .logo { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; }
+  .brandText { font-size: 14px; font-weight: 800; color: var(--navy); white-space: nowrap; }
+  .brandText em { font-weight: 400; font-style: normal; }
+
+  .sideNav { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .navItem {
+    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    background: none; border: none; padding: 10px 12px; border-radius: 9px;
+    font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+  }
+  .navItem:hover { background: var(--paper-2); }
+  .navItem.on { background: var(--navy-soft); color: var(--navy); }
+  .navIcon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+  .navLabel { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .sideFooter { border-top: 1px solid var(--line); padding: 14px 12px; }
+  .accountBox { margin-top: 10px; }
+  .accountEmail { font-size: 12.5px; font-weight: 600; color: var(--ink); padding: 0 4px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sideLink { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 7px 4px; border-radius: 6px; }
+  .sideLink:hover { background: var(--paper-2); color: var(--navy); }
+  .sideLink.signOut { color: var(--red); }
+
+  .sideOverlay { display: none; }
+
+  .main { flex: 1; min-width: 0; padding: 16px 24px 80px; }
+  .top { display: none; }
+
+  @media (max-width: 900px) {
+    .shell { display: block; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 200;
+      transform: translateX(-100%); transition: transform 0.25s ease;
+      box-shadow: 8px 0 24px rgba(20,28,45,0.15);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sideOverlay { display: block; position: fixed; inset: 0; background: rgba(15,20,32,0.5); z-index: 190; }
+    .main { padding: 12px 12px 90px; }
+    .top {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
+    }
+    .menuBtn { background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; width: 38px; height: 38px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+    .topTitle { font-size: 16px; font-weight: 700; color: var(--ink); }
+    .statsStrip { grid-template-columns: 1fr; }
+  }
   .filterRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
   .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
   .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
