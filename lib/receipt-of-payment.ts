@@ -5,6 +5,7 @@ export type ReceiptDetails = {
   receiptNumber: string;
   schoolName: string;
   invoiceNumber?: string | null;
+  description?: string | null;
   amount: number;
   currency?: string;
   paymentDate: string; // ISO date
@@ -74,6 +75,7 @@ export async function generateReceiptPdf(d: ReceiptDetails) {
 
   const rows: [string, string][] = [
     ["Received From", d.schoolName],
+    ["For", d.description || "General payment"],
     ["Amount", fmtMoney(d.amount, currency)],
     ["Payment Date", new Date(d.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })],
     ["Related Invoice", d.invoiceNumber || "General payment (not tied to a specific invoice)"],
@@ -83,20 +85,30 @@ export async function generateReceiptPdf(d: ReceiptDetails) {
   doc.setDrawColor(224, 228, 236);
   doc.setFillColor(246, 248, 251);
   const boxTop = y;
-  const rowH = 9;
-  doc.roundedRect(18, boxTop, W - 36, rows.length * rowH + 6, 2, 2, "F");
+  const lineH = 5.2;
+  const rowPad = 4;
+  const valueMaxWidth = W - 100;
+  // Measure each row's actual wrapped height first, since a long product
+  // description can wrap to more than one line and a fixed row height
+  // would let it overflow into the row below.
+  const wrapped = rows.map(([k, v]) => {
+    const lines = doc.splitTextToSize(v, valueMaxWidth);
+    return { k, lines, height: Math.max(lines.length, 1) * lineH + rowPad };
+  });
+  const boxHeight = wrapped.reduce((sum, r) => sum + r.height, 0) + 6;
+  doc.roundedRect(18, boxTop, W - 36, boxHeight, 2, 2, "F");
   let ry = boxTop + 9;
-  rows.forEach(([k, v]) => {
+  wrapped.forEach(({ k, lines, height }) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
     doc.setTextColor(...navy);
     doc.text(k, 24, ry);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...ink2);
-    doc.text(v, 78, ry, { maxWidth: W - 100 });
-    ry += rowH;
+    doc.text(lines, 78, ry);
+    ry += height;
   });
-  y = boxTop + rows.length * rowH + 6 + 16;
+  y = boxTop + boxHeight + 16;
 
   if (d.note?.trim()) {
     doc.setFont("helvetica", "bold");

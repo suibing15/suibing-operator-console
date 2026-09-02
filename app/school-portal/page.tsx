@@ -392,6 +392,7 @@ function PaymentsTab({ session }: { session: Session }) {
       receiptNumber: row.receipt_number,
       schoolName: row.school_name,
       invoiceNumber: row.invoice_number,
+      description: row.description,
       amount: row.amount,
       paymentDate: row.payment_date,
       note: row.note,

@@ -84,11 +84,18 @@ export default function PaymentsQueue({ operatorEmail }: { operatorEmail: string
 
   async function downloadOfficialReceipt(p: PaymentSubmission, schoolMap: Record<string, string>) {
     if (!p.receipt_number || !p.reviewed_at) return;
+    let description: string | null = null;
+    if (p.invoice_id) {
+      const { data: inv } = await supabase.from("invoices").select("line_items").eq("id", p.invoice_id).single();
+      const items = (inv?.line_items as { description?: string }[] | undefined) ?? [];
+      description = items.map((i) => i.description).filter(Boolean).join(", ") || null;
+    }
     const { generateReceiptPdf } = await import("@/lib/receipt-of-payment");
     await generateReceiptPdf({
       receiptNumber: p.receipt_number,
       schoolName: schoolMap[p.school_id] ?? p.school_key,
       invoiceNumber: p.invoice_number,
+      description,
       amount: p.amount ?? 0,
       paymentDate: p.payment_date ?? p.created_at,
       note: p.note,
