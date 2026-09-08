@@ -17,6 +17,7 @@ import ComplaintsQueue from "@/app/components/ComplaintsQueue";
 import BroadcastAdmin from "@/app/components/BroadcastAdmin";
 import OperatorsAdmin from "@/app/components/OperatorsAdmin";
 import VisitorsPanel from "@/app/components/VisitorsPanel";
+import CustomDocumentBuilder from "@/app/components/CustomDocumentBuilder";
 
 type School = {
   id: string;
@@ -77,7 +78,7 @@ export default function Console() {
     a.remove();
     URL.revokeObjectURL(url);
   }
-  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints" | "visitors">("schools");
+  const [tab, setTab] = useState<"schools" | "prospects" | "jobs" | "postings" | "payments" | "products" | "testimonials" | "complaints" | "visitors" | "customdoc">("schools");
   const [pendingProspects, setPendingProspects] = useState(0);
   const [pendingApplicants, setPendingApplicants] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
@@ -174,6 +175,7 @@ export default function Console() {
     { key: "testimonials", label: "Testimonials", icon: "💬" },
     { key: "complaints", label: "Support", icon: "🎫", badge: openComplaints },
     { key: "visitors", label: "Visitors", icon: "📊" },
+    { key: "customdoc", label: "Custom Document", icon: "📝" },
   ];
 
   return (
@@ -291,6 +293,7 @@ export default function Console() {
       {tab === "testimonials" && <TestimonialsManager />}
       {tab === "complaints" && email && <ComplaintsQueue operatorEmail={email} />}
       {tab === "visitors" && <VisitorsPanel />}
+      {tab === "customdoc" && <CustomDocumentBuilder />}
 
       </div>
 

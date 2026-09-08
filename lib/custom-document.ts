@@ -1,0 +1,142 @@
+import { BRAND, drawLetterhead, drawFooter } from "./branding";
+import { supabase } from "./supabaseClient";
+
+export type CustomDocDetails = {
+  title: string;
+  subtitle?: string;
+  body: string; // free-form text; blank lines become paragraph breaks
+  recipientName?: string;
+  recipientAddress?: string;
+  includeSignature: boolean;
+  dateLabel?: string; // e.g. "28 August 2026" — defaults to today
+  fileName?: string; // without extension — defaults to a slugified title
+};
+
+async function loadSignature(): Promise<string | null> {
+  try {
+    const { data } = await supabase.rpc("get_company_settings");
+    const row = Array.isArray(data) ? data[0] : data;
+    return row?.signature_data ? `data:${row.signature_mimetype || "image/jpeg"};base64,${row.signature_data}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function slugify(s: string) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "document";
+}
+
+// Generates a professional, letterhead-branded PDF for any custom
+// contract, agreement, or report the operator writes freely — same
+// letterhead, colours, and (optionally) signature as every other
+// generated document, so it never looks out of place next to an
+// invoice or receipt.
+export async function generateCustomDocPdf(d: CustomDocDetails) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const { navy, ink2, muted } = BRAND;
+  const marginX = 18;
+  const footerSafeY = pageH - 22;
+
+  let y = drawLetterhead(doc, d.title.toUpperCase(), d.subtitle);
+
+  const dateLabel = d.dateLabel?.trim() || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...muted);
+  doc.text(`Date: ${dateLabel}`, W - marginX, y - 4, { align: "right" });
+
+  if (d.recipientName?.trim()) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...navy);
+    doc.text("To", marginX, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ink2);
+    doc.setFontSize(10.5);
+    doc.text(d.recipientName.trim(), marginX, y);
+    y += 5.5;
+    if (d.recipientAddress?.trim()) {
+      const addrLines = doc.splitTextToSize(d.recipientAddress.trim(), W - marginX * 2);
+      doc.text(addrLines, marginX, y);
+      y += addrLines.length * 5;
+    }
+    y += 8;
+  }
+
+  // Body text — split on blank lines into paragraphs, wrap each to the
+  // page width, and start a fresh page whenever a paragraph would run
+  // past the footer-safe boundary.
+  const paragraphs = d.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(...ink2);
+  const lineH = 6;
+
+  for (const para of paragraphs) {
+    const lines = doc.splitTextToSize(para, W - marginX * 2) as string[];
+    const paraHeight = lines.length * lineH;
+    if (y + paraHeight > footerSafeY) {
+      drawFooter(doc, "");
+      doc.addPage();
+      y = 20;
+    }
+    doc.text(lines, marginX, y);
+    y += paraHeight + 6;
+  }
+
+  if (d.includeSignature) {
+    const signatureDataUrl = await loadSignature();
+    const sigHeight = signatureDataUrl ? 15 + 3 : 3;
+    if (y + sigHeight + 20 > footerSafeY) {
+      drawFooter(doc, "");
+      doc.addPage();
+      y = 20;
+    }
+    y += 6;
+    if (signatureDataUrl) {
+      try {
+        const maxSigW = 32;
+        const maxSigH = 15;
+        let sigW = maxSigW;
+        let sigH = maxSigH;
+        try {
+          const props = (doc as any).getImageProperties(signatureDataUrl);
+          if (props?.width && props?.height) {
+            const ratio = props.width / props.height;
+            if (maxSigW / ratio <= maxSigH) { sigW = maxSigW; sigH = maxSigW / ratio; }
+            else { sigH = maxSigH; sigW = maxSigH * ratio; }
+          }
+        } catch {
+          // Fall back to the default box above if dimensions can't be read.
+        }
+        doc.addImage(signatureDataUrl, "JPEG", marginX, y, sigW, sigH);
+        y += sigH + 3;
+      } catch {
+        y += 3;
+      }
+    } else {
+      y += 3;
+    }
+    doc.setDrawColor(...ink2);
+    doc.line(marginX, y, marginX + 50, y);
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...navy);
+    doc.text(`For ${BRAND.companyLegal}, ${BRAND.companyTrade}`, marginX, y);
+  }
+
+  const totalPages = (doc as any).internal.getNumberOfPages
+    ? (doc as any).internal.getNumberOfPages()
+    : doc.internal.pages.length - 1;
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    drawFooter(doc, totalPages > 1 ? `Page ${p} of ${totalPages}` : "Page 1 of 1");
+  }
+
+  doc.save(`${d.fileName?.trim() || slugify(d.title)}.pdf`);
+}

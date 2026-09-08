@@ -16,20 +16,40 @@ function getSessionId(): string {
 }
 
 // Silently logs a page view for basic traffic stats. Deliberately
-// anonymous — no IP, no device fingerprint, just a random per-tab
-// session id (reset on every new browser session) plus the path and
-// referrer. Never blocks or slows the page; any failure is ignored.
+// avoids storing anything that identifies an individual device or
+// person: no IP address is ever stored (only used momentarily,
+// server-side, to resolve a coarse city/country), no device
+// fingerprint — just a random per-tab session id (reset on every new
+// browser session) plus the path, referrer, and resolved location.
+// Never blocks or slows the page; any failure is ignored.
 export default function VisitorTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
     const sessionId = getSessionId();
     if (!sessionId) return;
-    supabase.rpc("log_page_view", {
-      p_path: pathname,
-      p_referrer: typeof document !== "undefined" ? document.referrer || null : null,
-      p_session_id: sessionId,
-    }).then(() => {}, () => {});
+
+    (async () => {
+      let city: string | null = null;
+      let country: string | null = null;
+      try {
+        const res = await fetch("/api/visitor-location");
+        if (res.ok) {
+          const loc = await res.json();
+          city = loc.city ?? null;
+          country = loc.country ?? null;
+        }
+      } catch {
+        // Location is a nice-to-have — proceed without it if this fails.
+      }
+      supabase.rpc("log_page_view", {
+        p_path: pathname,
+        p_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+        p_session_id: sessionId,
+        p_city: city,
+        p_country: country,
+      }).then(() => {}, () => {});
+    })();
   }, [pathname]);
 
   return null;

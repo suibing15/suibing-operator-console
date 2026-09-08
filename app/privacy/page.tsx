@@ -33,7 +33,7 @@ export default function PrivacyPolicy() {
           <li><strong>School records data</strong> that a subscribed school enters into our products (student records, results, attendance, fee records) — this data belongs to the school, and we act only as a service provider processing it on the school's behalf.</li>
           <li><strong>Payment information</strong> — specifically, receipts you upload to confirm a payment, and the amount, date, and any note you provide. We do not collect or store card numbers or bank login credentials.</li>
           <li><strong>Account access credentials</strong> — for the school portal, a PIN you or we set is stored only as a one-way cryptographic hash; we cannot see or recover your actual PIN.</li>
-          <li><strong>Usage information</strong> such as pages visited and general device/browser information, collected automatically to help us maintain and improve the service.</li>
+          <li><strong>Usage information</strong> — when you visit our public website, we record the page visited, the referring site (if any), and a general city/country derived from your connection, using a randomly generated identifier that resets each browser session. We do not store your IP address, and this information cannot be used to identify you personally. This does not apply to the operator console or school portal, which are not tracked this way.</li>
         </ul>
 
         <h2>2. How We Use Information</h2>
@@ -58,7 +58,8 @@ export default function PrivacyPolicy() {
           provides for deletion of data at the end of a term, we give at least fourteen (14) days' written notice
           before deleting any data, in line with our standard Service Agreement terms. Prospect applications and
           job applications you submit are retained until approved, rejected, or manually removed by us; you may
-          request removal at any time by contacting us.
+          request removal at any time by contacting us. Website usage information (see Section 1) is retained for
+          up to twelve (12) months before being deleted.
         </p>
 
         <h2>5. Your Rights</h2>

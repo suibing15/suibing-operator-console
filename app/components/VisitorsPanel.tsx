@@ -6,26 +6,30 @@ type Stats = { total_views: number; unique_sessions: number; today_views: number
 type TopPage = { path: string; views: number; unique_sessions: number };
 type DailyVisit = { day: string; views: number; unique_sessions: number };
 type Referrer = { referrer: string; views: number };
+type Location = { city: string; country: string; views: number };
 
 export default function VisitorsPanel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [topPages, setTopPages] = useState<TopPage[]>([]);
   const [daily, setDaily] = useState<DailyVisit[]>([]);
   const [referrers, setReferrers] = useState<Referrer[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [days, setDays] = useState(30);
 
   async function load() {
-    const [s, tp, dv, rf] = await Promise.all([
+    const [s, tp, dv, rf, loc] = await Promise.all([
       supabase.rpc("get_visitor_stats", { p_days: days }),
       supabase.rpc("get_top_pages", { p_days: days, p_limit: 10 }),
       supabase.rpc("get_daily_visits", { p_days: days }),
       supabase.rpc("get_top_referrers", { p_days: days, p_limit: 8 }),
+      supabase.rpc("get_top_locations", { p_days: days, p_limit: 8 }),
     ]);
     const sRow = Array.isArray(s.data) ? s.data[0] : s.data;
     setStats(sRow ?? null);
     setTopPages((tp.data as TopPage[]) ?? []);
     setDaily((dv.data as DailyVisit[]) ?? []);
     setReferrers((rf.data as Referrer[]) ?? []);
+    setLocations((loc.data as Location[]) ?? []);
   }
 
   useEffect(() => { load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -94,11 +98,26 @@ export default function VisitorsPanel() {
             </table>
           )}
         </div>
+
+        <div className="card panel">
+          <h3>Visitor locations</h3>
+          {locations.length === 0 ? <p className="muted">No data yet.</p> : (
+            <table>
+              <thead><tr><th>Location</th><th className="r">Views</th></tr></thead>
+              <tbody>
+                {locations.map((l, i) => (
+                  <tr key={i}><td>{l.city}, {l.country}</td><td className="r">{l.views}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       <p className="hint">
         Counts page views and unique browser sessions on public pages only (not the console or school portal).
-        No IP addresses, device details, or anything identifying an individual visitor are recorded.
+        Locations are a general city/country resolved from the visitor's connection — no IP address, device
+        details, or anything identifying an individual visitor are ever stored.
       </p>
 
       <style jsx>{`
@@ -118,8 +137,9 @@ export default function VisitorsPanel() {
         .barCol { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 4px; }
         .barFill { width: 100%; background: var(--navy); border-radius: 3px 3px 0 0; min-height: 4px; }
         .barLabel { font-size: 9px; color: var(--muted); margin-top: 4px; }
-        .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        @media (max-width: 800px) { .twoCol { grid-template-columns: 1fr; } .statsRow { grid-template-columns: repeat(2, 1fr); } }
+        .twoCol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        @media (max-width: 1000px) { .twoCol { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 700px) { .twoCol { grid-template-columns: 1fr; } .statsRow { grid-template-columns: repeat(2, 1fr); } }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { text-align: left; font-size: 10.5px; text-transform: uppercase; color: var(--muted); padding: 6px 4px; border-bottom: 1px solid var(--line); }
         td { padding: 8px 4px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
