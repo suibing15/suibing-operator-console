@@ -308,6 +308,55 @@ function PortalDashboard({ session, onLogout }: { session: Session; onLogout: ()
   );
 }
 
+type DocumentRow = { id: string; title: string; file_name: string; created_at: string };
+
+function DocumentsSection({ session }: { session: Session }) {
+  const [docs, setDocs] = useState<DocumentRow[] | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.rpc("list_school_documents", { p_school_key: session.schoolKey, p_pin: session.pin })
+      .then(({ data }) => setDocs((data as DocumentRow[]) ?? []));
+  }, [session]);
+
+  async function download(d: DocumentRow) {
+    setDownloadingId(d.id);
+    const { data } = await supabase.rpc("get_school_document", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_id: d.id,
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    setDownloadingId(null);
+    if (!row?.file_data) return;
+    const link = document.createElement("a");
+    link.href = `data:application/pdf;base64,${row.file_data}`;
+    link.download = row.file_name || `${d.title}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  if (!docs || docs.length === 0) return null;
+
+  return (
+    <div className="docsSection">
+      <h3 className="docsHeading">📄 Documents shared with you</h3>
+      <div className="docsList">
+        {docs.map((d) => (
+          <div key={d.id} className="docRow">
+            <div>
+              <div className="docTitle">{d.title}</div>
+              <div className="docDate">{new Date(d.created_at).toLocaleDateString("en-GB")}</div>
+            </div>
+            <button className="mini" onClick={() => download(d)} disabled={downloadingId === d.id}>
+              {downloadingId === d.id ? "…" : "⬇ Download"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InvoicesTab({ session }: { session: Session }) {
   const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
   const [filterType, setFilterType] = useState("all");
@@ -339,6 +388,7 @@ function InvoicesTab({ session }: { session: Session }) {
 
   return (
     <div className="tabPanel">
+      <DocumentsSection session={session} />
       <div className="filterRow">
         {["all", "subscription", "hosting", "storage", "domain", "custom", "other"].map((t) => (
           <button key={t} className={filterType === t ? "chip on" : "chip"} onClick={() => setFilterType(t)}>
@@ -868,6 +918,13 @@ const dashStyles = `
   .statCard.statUpdated { background: var(--paper-2); }
   @media (max-width: 560px) { .statsStrip { grid-template-columns: 1fr; } }
   .tabPanel { max-width: 900px; }
+  .docsSection { background: var(--paper-2); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 18px; }
+  .docsHeading { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+  .docsList { display: flex; flex-direction: column; gap: 8px; }
+  .docRow { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 8px; padding: 10px 12px; }
+  .docTitle { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .docDate { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .mini { background: var(--navy-soft); color: var(--navy); border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
   /* ---------- Sidebar (matches operator console layout) ---------- */
   .shell { display: flex; min-height: 100vh; }

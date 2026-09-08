@@ -31,7 +31,11 @@ function slugify(s: string) {
 // letterhead, colours, and (optionally) signature as every other
 // generated document, so it never looks out of place next to an
 // invoice or receipt.
-export async function generateCustomDocPdf(d: CustomDocDetails) {
+//
+// Returns the built jsPDF instance so callers can either trigger a
+// direct browser download (generateCustomDocPdf) or extract the raw
+// PDF bytes to send to a school (buildCustomDocPdf).
+async function buildCustomDocPdf(d: CustomDocDetails) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -138,5 +142,21 @@ export async function generateCustomDocPdf(d: CustomDocDetails) {
     drawFooter(doc, totalPages > 1 ? `Page ${p} of ${totalPages}` : "Page 1 of 1");
   }
 
+  return doc;
+}
+
+// Triggers a direct browser download of the generated PDF.
+export async function generateCustomDocPdf(d: CustomDocDetails) {
+  const doc = await buildCustomDocPdf(d);
   doc.save(`${d.fileName?.trim() || slugify(d.title)}.pdf`);
+}
+
+// Builds the PDF and returns it as base64 (no file extension/data-url
+// prefix), for sending to a school via send_school_document rather
+// than downloading it locally.
+export async function buildCustomDocBase64(d: CustomDocDetails): Promise<{ base64: string; fileName: string }> {
+  const doc = await buildCustomDocPdf(d);
+  const dataUri: string = doc.output("datauristring");
+  const base64 = dataUri.split(",")[1] ?? "";
+  return { base64, fileName: `${d.fileName?.trim() || slugify(d.title)}.pdf` };
 }

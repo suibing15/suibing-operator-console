@@ -293,7 +293,7 @@ export default function Console() {
       {tab === "testimonials" && <TestimonialsManager />}
       {tab === "complaints" && email && <ComplaintsQueue operatorEmail={email} />}
       {tab === "visitors" && <VisitorsPanel />}
-      {tab === "customdoc" && <CustomDocumentBuilder />}
+      {tab === "customdoc" && email && <CustomDocumentBuilder operatorEmail={email} />}
 
       </div>
 

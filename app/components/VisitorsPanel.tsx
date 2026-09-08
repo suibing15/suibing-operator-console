@@ -35,6 +35,8 @@ export default function VisitorsPanel() {
   useEffect(() => { load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxViews = Math.max(1, ...daily.map((d) => d.views));
+  const barColors = ["#2E75B6", "#5DCAA5", "#EF9F27", "#E4685D", "#7F77DD", "#1F3864"];
+  const tableColors = ["#2E75B6", "#5DCAA5", "#EF9F27", "#E4685D", "#7F77DD", "#1F3864", "#0F6E56", "#993C1D"];
 
   return (
     <div>
@@ -48,10 +50,10 @@ export default function VisitorsPanel() {
       </div>
 
       <div className="statsRow">
-        <div className="statCard"><span className="l">Views today</span><span className="v">{stats?.today_views ?? 0}</span></div>
-        <div className="statCard"><span className="l">Visitors today</span><span className="v">{stats?.today_sessions ?? 0}</span></div>
-        <div className="statCard"><span className="l">Views ({days}d)</span><span className="v">{stats?.total_views ?? 0}</span></div>
-        <div className="statCard"><span className="l">Visitors ({days}d)</span><span className="v">{stats?.unique_sessions ?? 0}</span></div>
+        <div className="statCard c1"><span className="l">Views today</span><span className="v">{stats?.today_views ?? 0}</span></div>
+        <div className="statCard c2"><span className="l">Visitors today</span><span className="v">{stats?.today_sessions ?? 0}</span></div>
+        <div className="statCard c3"><span className="l">Views ({days}d)</span><span className="v">{stats?.total_views ?? 0}</span></div>
+        <div className="statCard c4"><span className="l">Visitors ({days}d)</span><span className="v">{stats?.unique_sessions ?? 0}</span></div>
       </div>
 
       <div className="card panel">
@@ -60,9 +62,15 @@ export default function VisitorsPanel() {
           <p className="muted">No visits recorded yet in this range.</p>
         ) : (
           <div className="chart">
-            {daily.map((d) => (
+            {daily.map((d, i) => (
               <div key={d.day} className="barCol" title={`${d.day}: ${d.views} views, ${d.unique_sessions} visitors`}>
-                <div className="barFill" style={{ height: `${Math.max(4, (d.views / maxViews) * 100)}%` }} />
+                <div
+                  className="barFill"
+                  style={{
+                    height: `${Math.max(4, (d.views / maxViews) * 100)}%`,
+                    background: `linear-gradient(180deg, ${barColors[i % barColors.length]}, ${barColors[i % barColors.length]}99)`,
+                  }}
+                />
                 <span className="barLabel">{new Date(d.day).getDate()}</span>
               </div>
             ))}
@@ -77,8 +85,12 @@ export default function VisitorsPanel() {
             <table>
               <thead><tr><th>Page</th><th className="r">Views</th><th className="r">Visitors</th></tr></thead>
               <tbody>
-                {topPages.map((p) => (
-                  <tr key={p.path}><td>{p.path}</td><td className="r">{p.views}</td><td className="r">{p.unique_sessions}</td></tr>
+                {topPages.map((p, i) => (
+                  <tr key={p.path}>
+                    <td><span className="dot" style={{ background: tableColors[i % tableColors.length] }} />{p.path}</td>
+                    <td className="r">{p.views}</td>
+                    <td className="r">{p.unique_sessions}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -91,8 +103,11 @@ export default function VisitorsPanel() {
             <table>
               <thead><tr><th>Source</th><th className="r">Views</th></tr></thead>
               <tbody>
-                {referrers.map((r) => (
-                  <tr key={r.referrer}><td className="truncate">{r.referrer}</td><td className="r">{r.views}</td></tr>
+                {referrers.map((r, i) => (
+                  <tr key={r.referrer}>
+                    <td className="truncate"><span className="dot" style={{ background: tableColors[i % tableColors.length] }} />{r.referrer}</td>
+                    <td className="r">{r.views}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -106,7 +121,10 @@ export default function VisitorsPanel() {
               <thead><tr><th>Location</th><th className="r">Views</th></tr></thead>
               <tbody>
                 {locations.map((l, i) => (
-                  <tr key={i}><td>{l.city}, {l.country}</td><td className="r">{l.views}</td></tr>
+                  <tr key={i}>
+                    <td><span className="dot" style={{ background: tableColors[i % tableColors.length] }} />{l.city}, {l.country}</td>
+                    <td className="r">{l.views}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -127,15 +145,23 @@ export default function VisitorsPanel() {
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
         .statsRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
-        .statCard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
-        .l { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+        .statCard { border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; color: #fff; }
+        .statCard .l { color: rgba(255,255,255,0.85); }
+        .statCard .v { color: #fff; }
+        .statCard.c1 { background: linear-gradient(135deg, #2E75B6, #1F3864); }
+        .statCard.c2 { background: linear-gradient(135deg, #5DCAA5, #0F6E56); }
+        .statCard.c3 { background: linear-gradient(135deg, #EF9F27, #C4720F); }
+        .statCard.c4 { background: linear-gradient(135deg, #E4685D, #A83A30); }
+        .l { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
         .v { font-size: 24px; font-weight: 800; color: var(--navy); }
         .panel { padding: 18px; margin-bottom: 16px; }
         .panel h3 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 14px; }
         .muted { color: var(--muted); font-size: 13px; }
         .chart { display: flex; align-items: flex-end; gap: 3px; height: 140px; }
         .barCol { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 4px; }
-        .barFill { width: 100%; background: var(--navy); border-radius: 3px 3px 0 0; min-height: 4px; }
+        .barFill { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: opacity 0.15s; }
+        .barFill:hover { opacity: 0.8; }
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; flex-shrink: 0; }
         .barLabel { font-size: 9px; color: var(--muted); margin-top: 4px; }
         .twoCol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         @media (max-width: 1000px) { .twoCol { grid-template-columns: 1fr 1fr; } }

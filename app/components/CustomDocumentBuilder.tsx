@@ -1,7 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function CustomDocumentBuilder() {
+type SchoolLite = { id: string; name: string };
+
+export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail: string }) {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -11,25 +14,59 @@ export default function CustomDocumentBuilder() {
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [schools, setSchools] = useState<SchoolLite[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState("");
 
-  async function generate() {
-    setErr(null);
-    if (!title.trim()) { setErr("Enter a title."); return; }
-    if (!body.trim()) { setErr("Enter the document body text."); return; }
+  useEffect(() => {
+    supabase.from("schools").select("id, name").order("name").then(({ data }) => {
+      setSchools((data as SchoolLite[]) ?? []);
+    });
+  }, []);
+
+  function validate() {
+    if (!title.trim()) { setErr("Enter a title."); return false; }
+    if (!body.trim()) { setErr("Enter the document body text."); return false; }
+    return true;
+  }
+
+  async function download() {
+    setErr(null); setMsg(null);
+    if (!validate()) return;
     setBusy(true);
     try {
       const { generateCustomDocPdf } = await import("@/lib/custom-document");
       await generateCustomDocPdf({
-        title: title.trim(),
-        subtitle: subtitle.trim() || undefined,
-        recipientName: recipientName.trim() || undefined,
-        recipientAddress: recipientAddress.trim() || undefined,
-        body,
-        includeSignature,
-        fileName: fileName.trim() || undefined,
+        title: title.trim(), subtitle: subtitle.trim() || undefined,
+        recipientName: recipientName.trim() || undefined, recipientAddress: recipientAddress.trim() || undefined,
+        body, includeSignature, fileName: fileName.trim() || undefined,
       });
     } catch (e: any) {
       setErr(e?.message || "Could not generate the document.");
+    }
+    setBusy(false);
+  }
+
+  async function sendToSchool() {
+    setErr(null); setMsg(null);
+    if (!validate()) return;
+    if (!selectedSchoolId) { setErr("Choose a school to send this to."); return; }
+    setBusy(true);
+    try {
+      const { buildCustomDocBase64 } = await import("@/lib/custom-document");
+      const { base64, fileName: fname } = await buildCustomDocBase64({
+        title: title.trim(), subtitle: subtitle.trim() || undefined,
+        recipientName: recipientName.trim() || undefined, recipientAddress: recipientAddress.trim() || undefined,
+        body, includeSignature, fileName: fileName.trim() || undefined,
+      });
+      const { error } = await supabase.rpc("send_school_document", {
+        p_school_id: selectedSchoolId, p_title: title.trim(), p_file_data: base64, p_file_name: fname, p_by: operatorEmail,
+      });
+      if (error) throw new Error(error.message);
+      const schoolName = schools.find((s) => s.id === selectedSchoolId)?.name ?? "the school";
+      setMsg(`Sent to ${schoolName}. It's now downloadable from their portal.`);
+    } catch (e: any) {
+      setErr(e?.message || "Could not send the document.");
     }
     setBusy(false);
   }
@@ -81,13 +118,26 @@ export default function CustomDocumentBuilder() {
             Include my signature at the bottom
           </label>
         </div>
+        <div className="field full">
+          <label>Send to a school (optional)</label>
+          <select value={selectedSchoolId} onChange={(e) => setSelectedSchoolId(e.target.value)}>
+            <option value="">— Don't send, just download —</option>
+            {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
       </div>
 
       {err && <div className="err">{err}</div>}
+      {msg && <div className="msgOk">{msg}</div>}
 
-      <button className="btn ok" onClick={generate} disabled={busy} style={{ marginTop: 16 }}>
-        {busy ? "Generating…" : "Generate PDF"}
-      </button>
+      <div className="actions">
+        <button className="btn ghost" onClick={download} disabled={busy}>
+          {busy ? "Working…" : "Download PDF"}
+        </button>
+        <button className="btn ok" onClick={sendToSchool} disabled={busy || !selectedSchoolId}>
+          {busy ? "Sending…" : "Send to selected school"}
+        </button>
+      </div>
 
       <style jsx>{`
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -97,7 +147,9 @@ export default function CustomDocumentBuilder() {
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field.full { grid-column: 1 / -1; }
         label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
-        input, textarea { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; box-sizing: border-box; }
+        input, textarea, select { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; box-sizing: border-box; background: #fff; }
+        .actions { display: flex; gap: 10px; margin-top: 16px; }
+        .msgOk { color: var(--green); font-size: 13px; margin-top: 12px; max-width: 640px; }
         textarea { resize: vertical; line-height: 1.5; }
         .checkboxField { display: flex; align-items: center; }
         .checkboxLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; }

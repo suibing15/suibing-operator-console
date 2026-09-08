@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 
+async function tryLookup(
+  url: string,
+  isSuccess: (data: any) => boolean,
+  extract: (data: any) => { city: string | null; country: string | null }
+): Promise<{ city: string | null; country: string | null } | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!isSuccess(data)) return null;
+    const { city, country } = extract(data);
+    if (!city && !country) return null;
+    return { city: city || null, country: country || null };
+  } catch {
+    return null;
+  }
+}
+
 // Resolves the caller's IP address to a coarse city/country using a free
 // geolocation lookup — entirely server-side. The raw IP is used only for
 // this one lookup and is never returned to the client or written
 // anywhere; only the resolved city/country ever leaves this route.
+// Tries two independent providers in sequence, since either one can be
+// unreliable or rate-limited on its own.
 export async function GET(req: NextRequest) {
   try {
     const ip =
@@ -17,15 +37,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ city: null, country: null });
     }
 
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=city,country,status`, {
-      signal: AbortSignal.timeout(2500),
-    });
-    if (!res.ok) return NextResponse.json({ city: null, country: null });
+    const primary = await tryLookup(`https://ipwho.is/${ip}?fields=success,city,country`, (d) => d.success === true, (d) => ({ city: d.city, country: d.country }));
+    if (primary) return NextResponse.json(primary);
 
-    const data = await res.json();
-    if (data.status !== "success") return NextResponse.json({ city: null, country: null });
+    const fallback = await tryLookup(`https://ipapi.co/${ip}/json/`, (d) => !d.error, (d) => ({ city: d.city, country: d.country_name }));
+    if (fallback) return NextResponse.json(fallback);
 
-    return NextResponse.json({ city: data.city || null, country: data.country || null });
+    return NextResponse.json({ city: null, country: null });
   } catch {
     // Any failure (timeout, network issue, rate limit) degrades gracefully —
     // tracking continues without a location rather than breaking the page.
