@@ -313,11 +313,17 @@ type DocumentRow = { id: string; title: string; file_name: string; created_at: s
 function DocumentsSection({ session }: { session: Session }) {
   const [docs, setDocs] = useState<DocumentRow[] | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     supabase.rpc("list_school_documents", { p_school_key: session.schoolKey, p_pin: session.pin })
       .then(({ data }) => setDocs((data as DocumentRow[]) ?? []));
-  }, [session]);
+  }
+  useEffect(() => { load(); }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function download(d: DocumentRow) {
     setDownloadingId(d.id);
@@ -335,21 +341,79 @@ function DocumentsSection({ session }: { session: Session }) {
     link.remove();
   }
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function exitSelecting() {
+    setSelecting(false);
+    setSelected(new Set());
+    setConfirmDelete(false);
+    setDeleteErr(null);
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeleting(true);
+    setDeleteErr(null);
+    const { error } = await supabase.rpc("delete_school_documents", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_document_ids: Array.from(selected),
+    });
+    setDeleting(false);
+    if (error) { setDeleteErr(error.message); return; }
+    exitSelecting();
+    load();
+  }
+
   if (!docs || docs.length === 0) return null;
 
   return (
     <div className="docsSection">
-      <h3 className="docsHeading">📄 Documents shared with you</h3>
+      <div className="docsHeadRow">
+        <h3 className="docsHeading">📄 Documents shared with you</h3>
+        {selecting ? (
+          <button className="btn ghost small" onClick={exitSelecting}>Cancel</button>
+        ) : (
+          <button className="btn ghost small" onClick={() => setSelecting(true)}>Select</button>
+        )}
+      </div>
+
+      {selecting && (
+        <div className="selectBar">
+          <span>{selected.size} selected</span>
+          {deleteErr && <span className="deleteErrInline">{deleteErr}</span>}
+          <button
+            className={confirmDelete ? "btn danger small" : "btn ghost small"}
+            disabled={selected.size === 0 || deleting}
+            onClick={deleteSelected}
+          >
+            {deleting ? "Deleting…" : confirmDelete ? `Confirm delete (${selected.size})` : "Delete selected"}
+          </button>
+        </div>
+      )}
+
       <div className="docsList">
         {docs.map((d) => (
           <div key={d.id} className="docRow">
-            <div>
-              <div className="docTitle">{d.title}</div>
-              <div className="docDate">{new Date(d.created_at).toLocaleDateString("en-GB")}</div>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              {selecting && (
+                <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleSelect(d.id)} style={{ marginTop: 4 }} />
+              )}
+              <div>
+                <div className="docTitle">{d.title}</div>
+                <div className="docDate">{new Date(d.created_at).toLocaleDateString("en-GB")}</div>
+              </div>
             </div>
-            <button className="mini" onClick={() => download(d)} disabled={downloadingId === d.id}>
-              {downloadingId === d.id ? "…" : "⬇ Download"}
-            </button>
+            {!selecting && (
+              <button className="mini" onClick={() => download(d)} disabled={downloadingId === d.id}>
+                {downloadingId === d.id ? "…" : "⬇ Download"}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -988,7 +1052,8 @@ const dashStyles = `
   @media (max-width: 560px) { .statsStrip { grid-template-columns: 1fr; } }
   .tabPanel { max-width: 900px; }
   .docsSection { background: var(--paper-2); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 18px; }
-  .docsHeading { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+  .docsHeadRow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .docsHeading { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 0; }
   .docsList { display: flex; flex-direction: column; gap: 8px; }
   .docRow { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 8px; padding: 10px 12px; }
   .docTitle { font-size: 13.5px; font-weight: 600; color: var(--ink); }
