@@ -361,11 +361,17 @@ function InvoicesTab({ session }: { session: Session }) {
   const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
   const [filterType, setFilterType] = useState("all");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     supabase.rpc("list_school_invoices_portal", { p_school_key: session.schoolKey, p_pin: session.pin })
       .then(({ data }) => setInvoices((data as InvoiceRow[]) ?? []));
-  }, [session]);
+  }
+  useEffect(() => { load(); }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = invoices?.filter((i) => filterType === "all" || i.invoice_type === filterType) ?? [];
 
@@ -386,16 +392,67 @@ function InvoicesTab({ session }: { session: Session }) {
     setDownloading(null);
   }
 
+  function toggleSelect(invoiceNumber: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(invoiceNumber)) next.delete(invoiceNumber); else next.add(invoiceNumber);
+      return next;
+    });
+  }
+
+  function exitSelecting() {
+    setSelecting(false);
+    setSelected(new Set());
+    setConfirmDelete(false);
+    setDeleteErr(null);
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeleting(true);
+    setDeleteErr(null);
+    const { error } = await supabase.rpc("delete_school_invoices", {
+      p_school_key: session.schoolKey, p_pin: session.pin, p_invoice_numbers: Array.from(selected),
+    });
+    setDeleting(false);
+    if (error) { setDeleteErr(error.message); return; }
+    exitSelecting();
+    load();
+  }
+
   return (
     <div className="tabPanel">
       <DocumentsSection session={session} />
-      <div className="filterRow">
-        {["all", "subscription", "hosting", "storage", "domain", "custom", "other"].map((t) => (
-          <button key={t} className={filterType === t ? "chip on" : "chip"} onClick={() => setFilterType(t)}>
-            {t === "all" ? "All" : TYPE_LABEL[t]}
-          </button>
-        ))}
+      <div className="filterRow" style={{ justifyContent: "space-between" }}>
+        <div className="filterRow" style={{ marginBottom: 0 }}>
+          {["all", "subscription", "hosting", "storage", "domain", "custom", "other"].map((t) => (
+            <button key={t} className={filterType === t ? "chip on" : "chip"} onClick={() => setFilterType(t)}>
+              {t === "all" ? "All" : TYPE_LABEL[t]}
+            </button>
+          ))}
+        </div>
+        {selecting ? (
+          <button className="btn ghost small" onClick={exitSelecting}>Cancel</button>
+        ) : (
+          <button className="btn ghost small" onClick={() => setSelecting(true)}>Select</button>
+        )}
       </div>
+
+      {selecting && (
+        <div className="selectBar">
+          <span>{selected.size} selected</span>
+          {deleteErr && <span className="deleteErrInline">{deleteErr}</span>}
+          <button
+            className={confirmDelete ? "btn danger small" : "btn ghost small"}
+            disabled={selected.size === 0 || deleting}
+            onClick={deleteSelected}
+          >
+            {deleting ? "Deleting…" : confirmDelete ? `Confirm delete (${selected.size})` : "Delete selected"}
+          </button>
+        </div>
+      )}
+
       {invoices === null ? (
         <p className="muted">Loading…</p>
       ) : visible.length === 0 ? (
@@ -405,16 +462,28 @@ function InvoicesTab({ session }: { session: Session }) {
           {visible.map((inv) => (
             <div key={inv.invoice_number} className="rowCard">
               <div className="rowTop">
-                <div>
-                  <div className="rowTitle">{inv.invoice_number}</div>
-                  <div className="rowSub">{TYPE_LABEL[inv.invoice_type] ?? inv.invoice_type} · {new Date(inv.issued_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  {selecting && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(inv.invoice_number)}
+                      onChange={() => toggleSelect(inv.invoice_number)}
+                      style={{ marginTop: 4 }}
+                    />
+                  )}
+                  <div>
+                    <div className="rowTitle">{inv.invoice_number}</div>
+                    <div className="rowSub">{TYPE_LABEL[inv.invoice_type] ?? inv.invoice_type} · {new Date(inv.issued_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                  </div>
                 </div>
                 <span className={`pill ${INV_STATUS_LABEL[inv.status]?.tone ?? "amber"}`}>{INV_STATUS_LABEL[inv.status]?.label ?? inv.status}</span>
               </div>
               <div className="rowTotal">{fmtMoney(inv.total, inv.currency)}</div>
-              <button className="btn ghost" disabled={downloading === inv.invoice_number} onClick={() => download(inv)} style={{ width: "100%", marginTop: 8 }}>
-                {downloading === inv.invoice_number ? "Preparing…" : "⬇ Download PDF"}
-              </button>
+              {!selecting && (
+                <button className="btn ghost" disabled={downloading === inv.invoice_number} onClick={() => download(inv)} style={{ width: "100%", marginTop: 8 }}>
+                  {downloading === inv.invoice_number ? "Preparing…" : "⬇ Download PDF"}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -980,6 +1049,8 @@ const dashStyles = `
     .statsStrip { grid-template-columns: 1fr; }
   }
   .filterRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .selectBar { display: flex; align-items: center; gap: 12px; background: var(--paper-2); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+  .deleteErrInline { color: var(--red); font-size: 12.5px; }
   .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
   .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
   .muted { color: var(--muted); font-size: 14px; }
@@ -1016,5 +1087,7 @@ const dashStyles = `
   .msgOk { color: var(--green); font-size: 13px; margin-top: 10px; }
   .dateFilterRow { display: flex; gap: 10px; align-items: end; margin-bottom: 16px; }
   .btn.small { padding: 7px 12px; font-size: 12px; }
+  .btn.danger { background: var(--red); color: #fff; border: none; }
+  .btn.danger:hover { background: #A83A30; }
   @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
 `;

@@ -12,6 +12,10 @@ export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail
   const [body, setBody] = useState("");
   const [includeSignature, setIncludeSignature] = useState(true);
   const [fileName, setFileName] = useState("");
+  const [fontFamily, setFontFamily] = useState<"helvetica" | "times" | "courier">("helvetica");
+  const [fontSize, setFontSize] = useState(11);
+  const [fontColor, setFontColor] = useState("#45506A");
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "justify">("left");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -40,6 +44,7 @@ export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail
         title: title.trim(), subtitle: subtitle.trim() || undefined,
         recipientName: recipientName.trim() || undefined, recipientAddress: recipientAddress.trim() || undefined,
         body, includeSignature, fileName: fileName.trim() || undefined,
+        fontFamily, fontSize, fontColor, textAlign,
       });
     } catch (e: any) {
       setErr(e?.message || "Could not generate the document.");
@@ -58,6 +63,7 @@ export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail
         title: title.trim(), subtitle: subtitle.trim() || undefined,
         recipientName: recipientName.trim() || undefined, recipientAddress: recipientAddress.trim() || undefined,
         body, includeSignature, fileName: fileName.trim() || undefined,
+        fontFamily, fontSize, fontColor, textAlign,
       });
       const { error } = await supabase.rpc("send_school_document", {
         p_school_id: selectedSchoolId, p_title: title.trim(), p_file_data: base64, p_file_name: fname, p_by: operatorEmail,
@@ -100,12 +106,40 @@ export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail
           <input value={recipientAddress} onChange={(e) => setRecipientAddress(e.target.value)} placeholder="e.g. 12 School Road, Kano" />
         </div>
         <div className="field full">
+          <label>Body text style</label>
+          <div className="styleRow">
+            <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value as typeof fontFamily)}>
+              <option value="helvetica">Helvetica (sans-serif)</option>
+              <option value="times">Times (serif)</option>
+              <option value="courier">Courier (monospace)</option>
+            </select>
+            <select value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))}>
+              {[9, 10, 11, 12, 13, 14, 16].map((s) => <option key={s} value={s}>{s}pt</option>)}
+            </select>
+            <select value={textAlign} onChange={(e) => setTextAlign(e.target.value as typeof textAlign)}>
+              <option value="left">Left</option>
+              <option value="center">Centred</option>
+              <option value="justify">Justified</option>
+            </select>
+            <label className="colorField">
+              <input type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} />
+              Text colour
+            </label>
+          </div>
+        </div>
+        <div className="field full">
           <label>Body text</label>
           <textarea
             rows={14}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={"Write freely. Leave a blank line between paragraphs to start a new one.\n\nExample:\nThis Agreement is made between SUIBING LIMITED (\"the Company\") and the above-named party (\"the Client\").\n\n1. The Company agrees to provide...\n\n2. The Client agrees to..."}
+            style={{
+              fontFamily: fontFamily === "times" ? "Georgia, serif" : fontFamily === "courier" ? "monospace" : "inherit",
+              fontSize: `${fontSize + 2}px`,
+              color: fontColor,
+              textAlign: textAlign === "justify" ? "justify" : textAlign,
+            }}
           />
         </div>
         <div className="field">
@@ -148,6 +182,10 @@ export default function CustomDocumentBuilder({ operatorEmail }: { operatorEmail
         .field.full { grid-column: 1 / -1; }
         label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
         input, textarea, select { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; box-sizing: border-box; background: #fff; }
+        .styleRow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .styleRow select { flex: 1; min-width: 120px; }
+        .colorField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+        .colorField input[type="color"] { width: 34px; height: 34px; padding: 2px; cursor: pointer; }
         .actions { display: flex; gap: 10px; margin-top: 16px; }
         .msgOk { color: var(--green); font-size: 13px; margin-top: 12px; max-width: 640px; }
         textarea { resize: vertical; line-height: 1.5; }

@@ -18,6 +18,7 @@ import BroadcastAdmin from "@/app/components/BroadcastAdmin";
 import OperatorsAdmin from "@/app/components/OperatorsAdmin";
 import VisitorsPanel from "@/app/components/VisitorsPanel";
 import CustomDocumentBuilder from "@/app/components/CustomDocumentBuilder";
+import NotificationBell from "@/app/components/NotificationBell";
 
 type School = {
   id: string;
@@ -57,6 +58,11 @@ const fmtNaira = (n: number) => "NGN " + n.toLocaleString("en-NG");
 export default function Console() {
   const { email, isOperator, loading, signOut } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
+  const schoolNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    schools.forEach((s) => { map[s.id] = s.name; });
+    return map;
+  }, [schools]);
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -222,6 +228,11 @@ export default function Console() {
           <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
         </header>
 
+        <div className="topBar">
+          <span className="topBarTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
+          <NotificationBell schoolNames={schoolNameMap} />
+        </div>
+
         {mfaCheckDone && mfaIncomplete && (
           <div className="mfaBanner">
             Your authenticator app setup looks incomplete — you may want to check it under{" "}
@@ -352,6 +363,8 @@ export default function Console() {
 
         /* ---------- Main content ---------- */
         .main { flex: 1; min-width: 0; padding: 16px 20px 80px; }
+        .topBar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .topBarTitle { font-size: 18px; font-weight: 700; color: var(--ink); }
         .top {
           display: none; /* only shown on mobile, see below */
         }
@@ -391,6 +404,8 @@ export default function Console() {
           .sidebar.open { transform: translateX(0); }
           .sideOverlay { display: block; position: fixed; inset: 0; background: rgba(15,20,32,0.5); z-index: 190; }
           .main { padding: 12px 12px 90px; }
+          .topBarTitle { display: none; }
+          .topBar { margin-bottom: 0; }
           .top {
             display: flex; align-items: center; gap: 12px;
             margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line);

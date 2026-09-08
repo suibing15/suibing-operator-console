@@ -10,6 +10,12 @@ export type CustomDocDetails = {
   includeSignature: boolean;
   dateLabel?: string; // e.g. "28 August 2026" — defaults to today
   fileName?: string; // without extension — defaults to a slugified title
+  // Body text styling — applies only to the free-form body paragraphs,
+  // not the letterhead/title, which stay in the fixed brand style.
+  fontFamily?: "helvetica" | "times" | "courier"; // jsPDF's built-in standard fonts, no embedding needed
+  fontSize?: number; // pt, defaults to 11
+  fontColor?: string; // hex, defaults to the brand's body text colour
+  textAlign?: "left" | "center" | "justify";
 };
 
 async function loadSignature(): Promise<string | null> {
@@ -24,6 +30,16 @@ async function loadSignature(): Promise<string | null> {
 
 function slugify(s: string) {
   return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "document";
+}
+
+function hexToRgb(hex?: string): [number, number, number] | null {
+  if (!hex) return null;
+  const clean = hex.replace("#", "").trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return [r, g, b];
 }
 
 // Generates a professional, letterhead-branded PDF for any custom
@@ -73,22 +89,34 @@ async function buildCustomDocPdf(d: CustomDocDetails) {
 
   // Body text — split on blank lines into paragraphs, wrap each to the
   // page width, and start a fresh page whenever a paragraph would run
-  // past the footer-safe boundary.
+  // past the footer-safe boundary. Font family, size, colour, and
+  // alignment are all operator-configurable; letterhead/title stay
+  // fixed to the brand style regardless.
   const paragraphs = d.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(...ink2);
-  const lineH = 6;
+  const fontFamily = d.fontFamily || "helvetica";
+  const fontSize = d.fontSize || 11;
+  const align = d.textAlign || "left";
+  const bodyColor = hexToRgb(d.fontColor) ?? ink2;
+  doc.setFont(fontFamily, "normal");
+  doc.setFontSize(fontSize);
+  doc.setTextColor(...bodyColor);
+  const lineH = fontSize * 0.53; // scales line height with font size, matches the ~6mm spacing used at 11pt elsewhere in the app
+  const textX = align === "center" ? W / 2 : marginX;
+  const maxWidth = W - marginX * 2;
 
   for (const para of paragraphs) {
-    const lines = doc.splitTextToSize(para, W - marginX * 2) as string[];
+    const lines = doc.splitTextToSize(para, maxWidth) as string[];
     const paraHeight = lines.length * lineH;
     if (y + paraHeight > footerSafeY) {
       drawFooter(doc, "");
       doc.addPage();
       y = 20;
     }
-    doc.text(lines, marginX, y);
+    if (align === "justify") {
+      doc.text(lines, textX, y, { maxWidth, align: "justify" });
+    } else {
+      doc.text(lines, textX, y, { align });
+    }
     y += paraHeight + 6;
   }
 
