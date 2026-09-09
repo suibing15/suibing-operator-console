@@ -69,36 +69,60 @@ export default function NotificationBell({ schoolNames }: { schoolNames: Record<
       </button>
 
       {open && (
-        <div className="bellPanel">
-          <div className="bellHead">Recent activity</div>
-          <div className="bellList">
-            {items === null ? (
-              <p className="bellMuted">Loading…</p>
-            ) : items.length === 0 ? (
-              <p className="bellMuted">Nothing yet.</p>
-            ) : items.map((it) => (
-              <div key={it.id} className={`bellItem ${it.is_new ? "new" : ""}`}>
-                <span className="bellIcon">{EVENT_ICON[it.event] ?? "🔔"}</span>
-                <div className="bellItemBody">
-                  <div className="bellItemTitle">
-                    {eventLabel(it.event)}
-                    {it.school_id && <span className="bellSchool"> · {schoolNames[it.school_id] ?? it.school_key}</span>}
+        <>
+          <div className="bellBackdrop" onClick={() => setOpen(false)} />
+          <div className="bellPanel">
+            <div className="bellHead">
+              Recent activity
+              <button className="bellCloseMobile" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="bellList">
+              {items === null ? (
+                <p className="bellMuted">Loading…</p>
+              ) : items.length === 0 ? (
+                <p className="bellMuted">Nothing yet.</p>
+              ) : items.map((it) => (
+                <div key={it.id} className={`bellItem ${it.is_new ? "new" : ""}`}>
+                  <span className="bellIcon">{EVENT_ICON[it.event] ?? "🔔"}</span>
+                  <div className="bellItemBody">
+                    <div className="bellItemTitle">
+                      {eventLabel(it.event)}
+                      {it.school_id && <span className="bellSchool"> · {schoolNames[it.school_id] ?? it.school_key}</span>}
+                    </div>
+                    {it.detail && <div className="bellItemDetail">{it.detail}</div>}
+                    <div className="bellItemTime">{new Date(it.at).toLocaleString("en-GB")}</div>
                   </div>
-                  {it.detail && <div className="bellItemDetail">{it.detail}</div>}
-                  <div className="bellItemTime">{new Date(it.at).toLocaleString("en-GB")}</div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       <style jsx>{`
         .bellWrap { position: relative; }
         .bellBtn { position: relative; background: none; border: none; font-size: 19px; cursor: pointer; padding: 6px; }
         .bellBadge { position: absolute; top: 0; right: 0; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 999px; min-width: 16px; text-align: center; }
-        .bellPanel { position: absolute; top: 100%; right: 0; margin-top: 8px; width: 340px; max-width: 90vw; max-height: 440px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 12px 32px rgba(15,20,32,0.18); z-index: 250; display: flex; flex-direction: column; }
-        .bellHead { font-size: 13px; font-weight: 700; color: var(--ink); padding: 12px 14px; border-bottom: 1px solid var(--line); }
+        .bellPanel {
+          position: absolute; top: 100%; right: 0; margin-top: 8px; width: 340px; max-width: 90vw; max-height: 440px;
+          background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm);
+          box-shadow: 0 12px 32px rgba(15,20,32,0.18); z-index: 250; display: flex; flex-direction: column;
+        }
+        @media (max-width: 640px) {
+          .bellPanel {
+            position: fixed; top: auto; bottom: 0; left: 0; right: 0; margin-top: 0;
+            width: 100%; max-width: 100%; max-height: 70vh;
+            border-radius: 14px 14px 0 0; border: none;
+            box-shadow: 0 -8px 28px rgba(15,20,32,0.22);
+          }
+        }
+        .bellHead { font-size: 13px; font-weight: 700; color: var(--ink); padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+        .bellCloseMobile { display: none; background: none; border: none; font-size: 15px; color: var(--muted); cursor: pointer; }
+        .bellBackdrop { display: none; }
+        @media (max-width: 640px) {
+          .bellBackdrop { display: block; position: fixed; inset: 0; background: rgba(15,20,32,0.5); z-index: 240; }
+          .bellCloseMobile { display: block; }
+        }
         .bellList { overflow-y: auto; flex: 1; }
         .bellMuted { color: var(--muted); font-size: 13px; padding: 20px 14px; text-align: center; }
         .bellItem { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
