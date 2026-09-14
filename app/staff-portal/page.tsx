@@ -102,10 +102,11 @@ function StaffLogin({ onLogin }: { onLogin: (s: Session) => void }) {
 }
 
 function StaffDashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
+  const [tab, setTab] = useState<"tasks" | "account">("tasks");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [selected, setSelected] = useState<TaskRow | null>(null);
-  const [showAccount, setShowAccount] = useState(false);
 
   async function loadTasks() {
     const { data } = await supabase.rpc("list_staff_tasks", { p_username: session.username, p_pin: session.pin });
@@ -116,52 +117,92 @@ function StaffDashboard({ session, onLogout }: { session: Session; onLogout: () 
   const visible = (tasks ?? []).filter((t) => filterStatus === "all" || t.status === filterStatus);
   const openCount = (tasks ?? []).filter((t) => t.status === "assigned" || t.status === "in_progress").length;
 
+  const NAV_ITEMS: { key: typeof tab; label: string; icon: string; badge?: number }[] = [
+    { key: "tasks", label: "Tasks", icon: "✅", badge: openCount },
+    { key: "account", label: "Account", icon: "⚙️" },
+  ];
+
   return (
     <div className="shell">
-      <header className="top">
-        <a href="/" className="brandRow"><img src="/logo.png" alt="" className="logo" /><span>SUIBING</span></a>
-        <div className="topRight">
-          <span className="who">Hi, {session.fullName}</span>
-          <button className="link" onClick={() => setShowAccount(true)}>Account</button>
-          <button className="link" onClick={onLogout}>Sign out</button>
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sideBrand">
+          <img src="/logo.png" alt="" className="logo" />
+          <span className="brandText">SUIBING <em>Staff Portal</em></span>
         </div>
-      </header>
-
-      <main className="main">
-        <div className="pageHead">
-          <h1>Your tasks</h1>
-          {openCount > 0 && <span className="pill navy">{openCount} open</span>}
-        </div>
-
-        <div className="filters">
-          {["all", "assigned", "in_progress", "done", "reviewed"].map((s) => (
-            <button key={s} className={filterStatus === s ? "chip on" : "chip"} onClick={() => setFilterStatus(s)}>
-              {s === "all" ? "All" : STATUS_LABEL[s]?.label ?? s}
+        <nav className="sideNav">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              className={tab === item.key ? "navItem on" : "navItem"}
+              onClick={() => { setTab(item.key); setSidebarOpen(false); }}
+            >
+              <span className="navIcon">{item.icon}</span>
+              <span className="navLabel">{item.label}</span>
+              {!!item.badge && <span className="navBadge">{item.badge}</span>}
             </button>
           ))}
+        </nav>
+        <div className="sideFooter">
+          <div className="accountBox">
+            <div className="accountEmail">{session.fullName}</div>
+            <button className="sideLink signOut" onClick={onLogout}>Sign out</button>
+          </div>
         </div>
+      </aside>
 
-        {tasks === null ? (
-          <p className="muted">Loading…</p>
-        ) : visible.length === 0 ? (
-          <p className="muted">No tasks in this view.</p>
-        ) : (
-          <div className="cardList">
-            {visible.map((t) => (
-              <div key={t.id} className="taskCard card" onClick={() => setSelected(t)}>
-                <div className="taskTop">
-                  <div>
-                    <div className="taskTitle">{t.title}</div>
-                    <div className="taskMeta">{t.category}{t.school_name ? ` · ${t.school_name}` : ""}</div>
+      {sidebarOpen && <div className="sideOverlay" onClick={() => setSidebarOpen(false)} />}
+
+      <div className="main">
+        <header className="top">
+          <button className="menuBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
+          <span className="topTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
+        </header>
+
+        {tab === "tasks" && (
+          <div className="tabPanel">
+            <div className="pageHead">
+              <h1>Your tasks</h1>
+              {openCount > 0 && <span className="pill navy">{openCount} open</span>}
+            </div>
+
+            <div className="filters">
+              {["all", "assigned", "in_progress", "done", "reviewed"].map((s) => (
+                <button key={s} className={filterStatus === s ? "chip on" : "chip"} onClick={() => setFilterStatus(s)}>
+                  {s === "all" ? "All" : STATUS_LABEL[s]?.label ?? s}
+                </button>
+              ))}
+            </div>
+
+            {tasks === null ? (
+              <p className="muted">Loading…</p>
+            ) : visible.length === 0 ? (
+              <p className="muted">No tasks in this view.</p>
+            ) : (
+              <div className="cardList">
+                {visible.map((t) => (
+                  <div key={t.id} className="taskCard card" onClick={() => setSelected(t)}>
+                    <div className="taskTop">
+                      <div>
+                        <div className="taskTitle">{t.title}</div>
+                        <div className="taskMeta">{t.category}{t.school_name ? ` · ${t.school_name}` : ""}</div>
+                      </div>
+                      <span className={`pill ${STATUS_LABEL[t.status]?.tone}`}>{STATUS_LABEL[t.status]?.label}</span>
+                    </div>
+                    <div className="taskDate">Updated {new Date(t.updated_at).toLocaleDateString("en-GB")}</div>
                   </div>
-                  <span className={`pill ${STATUS_LABEL[t.status]?.tone}`}>{STATUS_LABEL[t.status]?.label}</span>
-                </div>
-                <div className="taskDate">Updated {new Date(t.updated_at).toLocaleDateString("en-GB")}</div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
-      </main>
+
+        {tab === "account" && (
+          <div className="tabPanel">
+            <div className="pageHead"><h1>Account</h1></div>
+            <ChangePinPanel session={session} />
+          </div>
+        )}
+      </div>
 
       {selected && (
         <TaskDetail
@@ -172,36 +213,8 @@ function StaffDashboard({ session, onLogout }: { session: Session; onLogout: () 
         />
       )}
 
-      {showAccount && <AccountModal session={session} onClose={() => setShowAccount(false)} />}
-
       <WhatsAppButton />
-      <style jsx>{`
-        .shell { min-height: 100vh; background: var(--paper); }
-        .top { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
-        .brandRow { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--navy); font-weight: 800; font-size: 14px; }
-        .logo { width: 26px; height: 26px; }
-        .topRight { display: flex; align-items: center; gap: 14px; }
-        .who { font-size: 13px; color: var(--ink-2); }
-        .link { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--navy); cursor: pointer; }
-        .main { max-width: 760px; margin: 0 auto; padding: 24px 20px 60px; }
-        .pageHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        h1 { font-size: 20px; font-weight: 700; color: var(--ink); }
-        .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-        .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
-        .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
-        .muted { color: var(--muted); font-size: 13px; }
-        .cardList { display: flex; flex-direction: column; gap: 10px; }
-        .taskCard { padding: 16px; cursor: pointer; }
-        .taskTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-        .taskTitle { font-size: 14.5px; font-weight: 700; color: var(--ink); }
-        .taskMeta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-        .taskDate { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
-        .pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-        .pill.amber { background: #FBF0DC; color: var(--amber); }
-        .pill.navy { background: var(--navy-soft); color: var(--navy); }
-        .pill.green { background: var(--green-soft); color: var(--green); }
-        .pill.muted { background: var(--paper-2); color: var(--muted); }
-      `}</style>
+      <style jsx>{styles}</style>
     </div>
   );
 }
@@ -325,7 +338,81 @@ function TaskDetail({
   );
 }
 
-function AccountModal({ session, onClose }: { session: Session; onClose: () => void }) {
+const styles = `
+  /* ---------- Sidebar shell (matches school portal / console layout) ---------- */
+  .shell { display: flex; min-height: 100vh; background: var(--paper); }
+  .sidebar {
+    width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
+  }
+  .sideBrand { display: flex; align-items: center; gap: 10px; padding: 20px 18px; border-bottom: 1px solid var(--line); }
+  .logo { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; }
+  .brandText { font-size: 14px; font-weight: 800; color: var(--navy); white-space: nowrap; }
+  .brandText em { font-weight: 400; font-style: normal; }
+
+  .sideNav { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .navItem {
+    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    background: none; border: none; padding: 10px 12px; border-radius: 9px;
+    font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+  }
+  .navItem:hover { background: var(--paper-2); }
+  .navItem.on { background: var(--navy-soft); color: var(--navy); }
+  .navIcon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+  .navLabel { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .navBadge { background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; flex-shrink: 0; }
+
+  .sideFooter { border-top: 1px solid var(--line); padding: 14px 12px; }
+  .accountBox { margin-top: 10px; }
+  .accountEmail { font-size: 12.5px; font-weight: 600; color: var(--ink); padding: 0 4px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sideLink { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 7px 4px; border-radius: 6px; }
+  .sideLink:hover { background: var(--paper-2); color: var(--navy); }
+  .sideLink.signOut { color: var(--red); }
+
+  .sideOverlay { display: none; }
+
+  .main { flex: 1; min-width: 0; padding: 16px 24px 80px; }
+  .top { display: none; }
+
+  .tabPanel { max-width: 900px; }
+  .pageHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  h1 { font-size: 20px; font-weight: 700; color: var(--ink); }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+  .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .cardList { display: flex; flex-direction: column; gap: 10px; }
+  .taskCard { padding: 16px; cursor: pointer; }
+  .taskTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .taskTitle { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .taskMeta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .taskDate { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .pill.amber { background: #FBF0DC; color: var(--amber); }
+  .pill.navy { background: var(--navy-soft); color: var(--navy); }
+  .pill.green { background: var(--green-soft); color: var(--green); }
+  .pill.muted { background: var(--paper-2); color: var(--muted); }
+
+  @media (max-width: 900px) {
+    .shell { display: block; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 200;
+      transform: translateX(-100%); transition: transform 0.25s ease;
+      box-shadow: 8px 0 24px rgba(20,28,45,0.15);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sideOverlay { display: block; position: fixed; inset: 0; background: rgba(15,20,32,0.5); z-index: 190; }
+    .main { padding: 12px 12px 90px; }
+    .top {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
+    }
+    .menuBtn { background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; width: 38px; height: 38px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+    .topTitle { font-size: 16px; font-weight: 700; color: var(--ink); }
+  }
+`;
+
+function ChangePinPanel({ session }: { session: Session }) {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -333,45 +420,36 @@ function AccountModal({ session, onClose }: { session: Session; onClose: () => v
   const [ok, setOk] = useState(false);
 
   async function change() {
-    setErr(null);
+    setErr(null); setOk(false);
     if (newPin.trim().length < 4) { setErr("New PIN must be at least 4 characters."); return; }
     setBusy(true);
     const { error } = await supabase.rpc("change_staff_pin", { p_username: session.username, p_current_pin: currentPin.trim(), p_new_pin: newPin.trim() });
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setOk(true);
+    setCurrentPin(""); setNewPin("");
   }
 
   return (
-    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal card" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="mh"><h3>Change PIN</h3><button className="x" onClick={onClose}>✕</button></div>
-        {ok ? (
-          <p className="okMsg">Your PIN has been changed.</p>
-        ) : (
-          <>
-            <label>Current PIN</label>
-            <input type="password" value={currentPin} onChange={(e) => setCurrentPin(e.target.value)} />
-            <label>New PIN (at least 4 characters)</label>
-            <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} />
-            {err && <div className="err">{err}</div>}
-            <button className="btn ok" disabled={busy} onClick={change} style={{ width: "100%", marginTop: 14 }}>
-              {busy ? "Saving…" : "Change PIN"}
-            </button>
-          </>
-        )}
-        <style jsx>{`
-          .overlay { position: fixed; inset: 0; background: rgba(15,20,32,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 300; backdrop-filter: blur(3px); }
-          .modal { width: 100%; max-width: 380px; padding: 24px; }
-          .mh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-          h3 { font-size: 16px; font-weight: 700; color: var(--ink); }
-          .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; }
-          label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 6px; }
-          input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; box-sizing: border-box; }
-          .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
-          .okMsg { color: var(--green); font-size: 13.5px; }
-        `}</style>
-      </div>
+    <div className="pinCard card">
+      <h3>Change PIN</h3>
+      <label>Current PIN</label>
+      <input type="password" value={currentPin} onChange={(e) => setCurrentPin(e.target.value)} />
+      <label>New PIN (at least 4 characters)</label>
+      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} />
+      {err && <div className="err">{err}</div>}
+      {ok && <div className="okMsg">Your PIN has been changed.</div>}
+      <button className="btn ok" disabled={busy} onClick={change} style={{ marginTop: 14 }}>
+        {busy ? "Saving…" : "Change PIN"}
+      </button>
+      <style jsx>{`
+        .pinCard { padding: 22px; max-width: 380px; }
+        h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 6px; }
+        input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; box-sizing: border-box; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+        .okMsg { color: var(--green); font-size: 13.5px; margin-top: 12px; }
+      `}</style>
     </div>
   );
 }
