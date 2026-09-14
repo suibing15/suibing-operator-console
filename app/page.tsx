@@ -200,6 +200,12 @@ export default function Home() {
             <p>Interested in joining the team building this software? See open roles.</p>
             <span className="guideGo">View openings →</span>
           </a>
+          <a href="/staff-portal" className="guideCard" style={{ ["--gc" as any]: "#0F6E56", ["--gcBg" as any]: "#0F6E561F" }}>
+            <div className="guideIcon">👷</div>
+            <h4>Staff portal</h4>
+            <p>Already on the team? Sign in to view your assigned tasks and update your progress.</p>
+            <span className="guideGo">Sign in →</span>
+          </a>
         </div>
         <p className="guideNote">Still not sure? Use the WhatsApp or email button in the corner — we're happy to point you the right way.</p>
       </section>
@@ -244,6 +250,7 @@ export default function Home() {
           <a href="/careers">Careers</a>
           <a href="/invoices">Invoices</a>
           <a href="/school-portal">School portal</a>
+          <a href="/staff-portal">Staff portal</a>
           <a href="/login">Operator sign-in</a>
           <a href="/privacy">Privacy Policy</a>
           <a href="/terms">Terms of Service</a>
