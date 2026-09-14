@@ -211,6 +211,7 @@ function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onD
   });
   const [savingOffer, setSavingOffer] = useState(false);
   const [offerErr, setOfferErr] = useState<string | null>(null);
+  const [showActivate, setShowActivate] = useState(false);
   const up = (k: string, v: string) => setOffer((p) => ({ ...p, [k]: v }));
 
   async function saveOffer() {
@@ -334,6 +335,19 @@ function ApplicantDrawer({ a, busy, onClose, onApprove, onReject, onCorrect, onD
           </div>
         )}
 
+        {a.status === "approved" && (
+          <button className="btn ghost" type="button" onClick={() => setShowActivate(true)} style={{ width: "100%", marginTop: 10 }}>
+            👷 Activate as staff
+          </button>
+        )}
+
+        {showActivate && (
+          <ActivateStaffModal
+            fullName={a.full_name} email={a.email} phone={a.phone} applicantId={a.id}
+            operatorEmail={operatorEmail} onClose={() => setShowActivate(false)}
+          />
+        )}
+
         <div className="actions">
           {(a.status === "pending" || a.status === "needs_correction") && (
             <>
@@ -400,6 +414,74 @@ function Field({ label, value }: { label: string; value: string }) {
         .l { font-size: 11px; color: var(--muted); }
         .v { font-size: 14px; font-weight: 600; color: var(--ink); }
       `}</style>
+    </div>
+  );
+}
+
+function ActivateStaffModal({
+  fullName, email, phone, applicantId, operatorEmail, onClose,
+}: { fullName: string; email: string | null; phone: string; applicantId: string; operatorEmail: string; onClose: () => void }) {
+  const suggestedUsername = fullName.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+  const [username, setUsername] = useState(suggestedUsername);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function activate() {
+    setErr(null);
+    if (!username.trim()) { setErr("Enter a username."); return; }
+    if (pin.trim().length < 4) { setErr("PIN must be at least 4 characters."); return; }
+    setBusy(true);
+    const { error } = await supabase.rpc("add_staff", {
+      p_username: username.trim(), p_pin: pin.trim(), p_full_name: fullName,
+      p_email: email || null, p_phone: phone || null, p_applicant_id: applicantId, p_by: operatorEmail,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setDone(true);
+  }
+
+  return (
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal card" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mh"><h3>Activate {fullName} as staff</h3><button className="x" onClick={onClose}>✕</button></div>
+
+        {done ? (
+          <>
+            <p className="doneMsg">
+              {fullName} can now sign in at the staff portal with username <strong>{username.trim()}</strong> and the
+              PIN you set. Share these with them directly. You can assign their first task from the Tasks tab.
+            </p>
+            <button className="btn ok" onClick={onClose} style={{ width: "100%", marginTop: 14 }}>Done</button>
+          </>
+        ) : (
+          <>
+            <p className="hint">This creates a staff portal login for {fullName}, separate from the operator console and separate from any school account.</p>
+            <label>Username</label>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} />
+            <label>PIN (at least 4 characters)</label>
+            <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} />
+            {err && <div className="err">{err}</div>}
+            <button className="btn ok" disabled={busy} onClick={activate} style={{ width: "100%", marginTop: 14 }}>
+              {busy ? "Activating…" : "Activate as staff"}
+            </button>
+          </>
+        )}
+
+        <style jsx>{`
+          .overlay { position: fixed; inset: 0; background: rgba(15,20,32,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 400; backdrop-filter: blur(3px); }
+          .modal { width: 100%; max-width: 420px; padding: 24px; }
+          .mh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 10px; }
+          h3 { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+          .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+          .hint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+          .doneMsg { font-size: 13.5px; color: var(--ink-2); line-height: 1.6; }
+          label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 6px; }
+          input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; box-sizing: border-box; }
+          .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
+        `}</style>
+      </div>
     </div>
   );
 }
