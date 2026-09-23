@@ -42,13 +42,21 @@ export default function VisitorTracker() {
       } catch {
         // Location is a nice-to-have — proceed without it if this fails.
       }
-      supabase.rpc("log_page_view", {
+      const { error } = await supabase.rpc("log_page_view", {
         p_path: pathname,
         p_referrer: typeof document !== "undefined" ? document.referrer || null : null,
         p_session_id: sessionId,
         p_city: city,
         p_country: country,
-      }).then(() => {}, () => {});
+      });
+      // Deliberately not shown to the visitor (this must never disrupt
+      // the page), but logged to the console so a real problem — like
+      // a mismatched function signature after a schema update — is
+      // discoverable by checking browser dev tools, instead of failing
+      // completely silently forever.
+      if (error && process.env.NODE_ENV !== "production") {
+        console.warn("[VisitorTracker] log_page_view failed:", error.message);
+      }
     })();
   }, [pathname]);
 

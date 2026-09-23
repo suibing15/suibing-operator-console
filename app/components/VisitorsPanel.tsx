@@ -16,7 +16,10 @@ export default function VisitorsPanel() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [days, setDays] = useState(30);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function load() {
+    setLoadError(null);
     const [s, tp, dv, rf, loc] = await Promise.all([
       supabase.rpc("get_visitor_stats", { p_days: days }),
       supabase.rpc("get_top_pages", { p_days: days, p_limit: 10 }),
@@ -24,6 +27,11 @@ export default function VisitorsPanel() {
       supabase.rpc("get_top_referrers", { p_days: days, p_limit: 8 }),
       supabase.rpc("get_top_locations", { p_days: days, p_limit: 8 }),
     ]);
+    // Surface the first real error rather than silently showing empty
+    // data — a permissions/signature mismatch should be visible, not
+    // indistinguishable from "no visitors yet".
+    const firstError = [s.error, tp.error, dv.error, rf.error, loc.error].find(Boolean);
+    if (firstError) { setLoadError(firstError.message); }
     const sRow = Array.isArray(s.data) ? s.data[0] : s.data;
     setStats(sRow ?? null);
     setTopPages((tp.data as TopPage[]) ?? []);
@@ -48,6 +56,12 @@ export default function VisitorsPanel() {
           ))}
         </div>
       </div>
+
+      {loadError && (
+        <div className="loadErr">
+          <strong>Couldn't load visitor data.</strong> {loadError}
+        </div>
+      )}
 
       <div className="statsRow">
         <div className="statCard c1"><span className="l">Views today</span><span className="v">{stats?.today_views ?? 0}</span></div>
@@ -144,6 +158,7 @@ export default function VisitorsPanel() {
         .rangeChips { display: flex; gap: 6px; }
         .chip { background: #fff; border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
         .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .loadErr { background: var(--red-soft); color: var(--red); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
         .statsRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
         .statCard { border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; color: #fff; }
         .statCard .l { color: rgba(255,255,255,0.85); }
