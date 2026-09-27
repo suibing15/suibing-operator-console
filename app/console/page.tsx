@@ -45,7 +45,11 @@ type School = {
   scheduled_status: "active" | "disabled" | null;
   scheduled_at: string | null;
   scheduled_message: string | null;
+  product_key: string;
+  metrics: Record<string, number> | null;
 };
+
+type Product = { slug: string; name: string; icon_emoji: string };
 
 type Activity = {
   id: string;
@@ -64,6 +68,13 @@ const fmtNaira = (n: number) => "NGN " + n.toLocaleString("en-NG");
 export default function Console() {
   const { email, isOperator, loading, signOut } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productFilter, setProductFilter] = useState<string>("all");
+  const productNameMap = useMemo(() => {
+    const map: Record<string, Product> = {};
+    products.forEach((p) => { map[p.slug] = p; });
+    return map;
+  }, [products]);
   const schoolNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     schools.forEach((s) => { map[s.id] = s.name; });
@@ -110,6 +121,12 @@ export default function Console() {
     const { data } = await supabase.from("schools").select("*").order("name");
     setSchools((data as School[]) ?? []);
   }, []);
+
+  useEffect(() => {
+    if (!isOperator) return;
+    supabase.from("products").select("slug,name,icon_emoji").order("display_order")
+      .then(({ data }) => setProducts((data as Product[]) ?? []));
+  }, [isOperator]);
 
   useEffect(() => {
     if (isOperator) load();
@@ -192,6 +209,7 @@ export default function Console() {
   const active = schools.filter((s) => s.status === "active").length;
   const overdue = schools.filter((s) => s.paid_until && new Date(s.paid_until) < new Date()).length;
   const totalStudents = schools.reduce((a, s) => a + (s.students_count || 0), 0);
+  const visibleSchools = productFilter === "all" ? schools : schools.filter((s) => s.product_key === productFilter);
 
   async function toggleStatus(s: School) {
     const next = s.status === "active" ? "disabled" : "active";
@@ -308,7 +326,15 @@ export default function Console() {
             )}
             <div className="bar">
               <h2>Registered schools</h2>
-              <button className="btn" onClick={() => setShowAdd(true)}>Add school</button>
+              <div className="barRight">
+                {products.length > 0 && (
+                  <select className="productFilter" value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
+                    <option value="all">All products</option>
+                    {products.map((p) => <option key={p.slug} value={p.slug}>{p.icon_emoji} {p.name}</option>)}
+                  </select>
+                )}
+                <button className="btn" onClick={() => setShowAdd(true)}>Add client</button>
+              </div>
             </div>
 
             <div className="card table-wrap">
@@ -317,15 +343,16 @@ export default function Console() {
                   <tr><th>School</th><th>Status</th><th className="r">Students</th><th className="r">Records</th><th>Paid until</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {schools.length === 0 ? (
-                    <tr><td colSpan={6} className="empty">No schools yet. Click “Add school”.</td></tr>
-                  ) : schools.map((s) => {
+                  {visibleSchools.length === 0 ? (
+                    <tr><td colSpan={6} className="empty">{schools.length === 0 ? "No schools yet. Click “Add client”." : "No clients for this product yet."}</td></tr>
+                  ) : visibleSchools.map((s) => {
                     const od = s.paid_until && new Date(s.paid_until) < new Date();
+                    const prod = productNameMap[s.product_key];
                     return (
                       <tr key={s.id}>
                         <td data-label="School">
                           <button className="name" onClick={() => setSelected(s)}>{s.name}</button>
-                          <div className="key">{s.school_key}</div>
+                          <div className="key">{s.school_key}{prod && <span className="prodTag"> · {prod.icon_emoji} {prod.name}</span>}</div>
                         </td>
                         <td data-label="Status">
                           <span className={`badge ${s.status}`}>{s.status}</span>
@@ -382,12 +409,13 @@ export default function Console() {
         <SchoolDrawer
           school={selected}
           operatorEmail={email}
+          products={products}
           onClose={() => setSelected(null)}
           onChanged={() => { load(); }}
         />
       )}
       {showAdd && (
-        <AddSchool operatorEmail={email} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); load(); }} />
+        <AddSchool operatorEmail={email} products={products} onClose={() => setShowAdd(false)} onDone={() => { load(); }} />
       )}
 
       <style jsx>{`
@@ -435,6 +463,8 @@ export default function Console() {
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+        .barRight { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .productFilter { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; background: #fff; color: var(--ink-2); }
         .welcomeBanner { position: relative; background: var(--green-soft); color: var(--green); border-radius: 10px; padding: 12px 40px 12px 14px; font-size: 13.5px; font-weight: 600; margin-bottom: 16px; }
         .mfaBanner { position: relative; background: #FBF0DC; color: #92650f; border-radius: 10px; padding: 12px 40px 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
         .bannerLink { background: none; border: none; color: #92650f; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
@@ -450,6 +480,7 @@ export default function Console() {
         .name { background: none; border: none; font-weight: 600; color: var(--navy); cursor: pointer; font-size: 14px; padding: 0; }
         .name:hover { text-decoration: underline; }
         .key { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .prodTag { color: var(--navy); font-weight: 600; }
         .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
         .badge.active { background: var(--green-soft); color: var(--green); }
         .badge.disabled { background: var(--red-soft); color: var(--red); }
@@ -591,8 +622,8 @@ function Redirect() {
 }
 
 // ---------- School drawer: details, payment, activity, PDF ----------
-function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
-  school: School; operatorEmail: string; onClose: () => void; onChanged: () => void;
+function SchoolDrawer({ school, operatorEmail, products, onClose, onChanged }: {
+  school: School; operatorEmail: string; products: Product[]; onClose: () => void; onChanged: () => void;
 }) {
   const [activity, setActivity] = useState<Activity[]>([]);
   const [amount, setAmount] = useState("10000");
@@ -602,6 +633,7 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
   const [editing, setEditing] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const product = products.find((p) => p.slug === school.product_key);
 
   const loadActivity = useCallback(async () => {
     const { data } = await supabase.rpc("list_activity_log", {
@@ -685,6 +717,7 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
           <div>
             <h3>{school.name}</h3>
             <span className={`badge ${school.status}`}>{school.status}</span>
+            {product && <span className="k">{product.icon_emoji} {product.name}</span>}
             <span className="k">{school.school_key}</span>
           </div>
           <div className="dhActions">
@@ -700,14 +733,24 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
         )}
 
         {editing ? (
-          <EditSchoolForm school={school} operatorEmail={operatorEmail}
+          <EditSchoolForm school={school} operatorEmail={operatorEmail} products={products}
             onCancel={() => setEditing(false)}
             onSaved={() => { setEditing(false); onChanged(); loadActivity(); }} />
         ) : (
           <>
         <div className="grid">
-          <Field label="Students" value={String(school.students_count)} />
-          <Field label="Records" value={String(school.records_count)} />
+          {school.product_key === "bucket" ? (
+            <>
+              <Field label="Students" value={String(school.students_count)} />
+              <Field label="Records" value={String(school.records_count)} />
+            </>
+          ) : school.metrics && Object.keys(school.metrics).length > 0 ? (
+            Object.entries(school.metrics).map(([k, v]) => (
+              <Field key={k} label={k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())} value={String(v)} />
+            ))
+          ) : (
+            <Field label="Metrics" value="Not yet reported" />
+          )}
           <Field label="Registered" value={fmtDate(school.registered_on)} />
           <Field label="Paid until" value={fmtDate(school.paid_until)} />
           <Field label="Contact" value={school.contact_person ?? "—"} />
@@ -819,14 +862,15 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
 }
 
 // ---------- Edit school ----------
-function EditSchoolForm({ school, operatorEmail, onCancel, onSaved }: {
-  school: School; operatorEmail: string; onCancel: () => void; onSaved: () => void;
+function EditSchoolForm({ school, operatorEmail, products, onCancel, onSaved }: {
+  school: School; operatorEmail: string; products: Product[]; onCancel: () => void; onSaved: () => void;
 }) {
   const [name, setName] = useState(school.name);
   const [contactPerson, setContactPerson] = useState(school.contact_person ?? "");
   const [contactEmail, setContactEmail] = useState(school.contact_email ?? "");
   const [appUrl, setAppUrl] = useState(school.app_url ?? "");
   const [plan, setPlan] = useState(school.plan);
+  const [productKey, setProductKey] = useState(school.product_key);
   const [notes, setNotes] = useState(school.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -837,7 +881,8 @@ function EditSchoolForm({ school, operatorEmail, onCancel, onSaved }: {
     setBusy(true);
     const { error } = await supabase.rpc("update_school", {
       p_school_id: school.id, p_name: name, p_contact_person: contactPerson,
-      p_contact_email: contactEmail, p_app_url: appUrl, p_plan: plan, p_notes: notes, p_by: operatorEmail,
+      p_contact_email: contactEmail, p_app_url: appUrl, p_plan: plan,
+      p_product_key: productKey, p_notes: notes, p_by: operatorEmail,
     });
     setBusy(false);
     if (error) { setErr(error.message); return; }
@@ -855,8 +900,19 @@ function EditSchoolForm({ school, operatorEmail, onCancel, onSaved }: {
       </div>
       <label>App URL</label>
       <input value={appUrl} onChange={(e) => setAppUrl(e.target.value)} placeholder="https://..." />
-      <label>Plan</label>
-      <input value={plan} onChange={(e) => setPlan(e.target.value)} />
+      <div className="two">
+        <div><label>Plan</label><input value={plan} onChange={(e) => setPlan(e.target.value)} /></div>
+        <div>
+          <label>Product</label>
+          {products.length > 0 ? (
+            <select value={productKey} onChange={(e) => setProductKey(e.target.value)}>
+              {products.map((p) => <option key={p.slug} value={p.slug}>{p.icon_emoji} {p.name}</option>)}
+            </select>
+          ) : (
+            <input value={productKey} onChange={(e) => setProductKey(e.target.value)} placeholder="e.g. bucket" />
+          )}
+        </div>
+      </div>
       <label>Internal notes</label>
       <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
       {err && <div className="err">{err}</div>}
@@ -868,8 +924,8 @@ function EditSchoolForm({ school, operatorEmail, onCancel, onSaved }: {
         .editBox { padding: 18px; margin-bottom: 18px; }
         h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
-        input, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
-        input:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        input, textarea, select { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
         textarea { resize: vertical; }
         .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; }
@@ -1369,7 +1425,9 @@ const SCHEDULE_OPTIONS: { key: string; label: string }[] = [
 ];
 
 function ContractBox({ school }: { school: School }) {
-  const [schedules, setSchedules] = useState<string[]>([]);
+  const [schedules, setSchedules] = useState<string[]>(() =>
+    SCHEDULE_OPTIONS.some((o) => o.key === school.product_key) ? [school.product_key] : []
+  );
   const [contactPerson, setContactPerson] = useState(school.contact_person ?? "");
   const [contactEmail, setContactEmail] = useState(school.contact_email ?? "");
   const [address, setAddress] = useState("");
@@ -1567,40 +1625,103 @@ function SetPasswordModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; onClose: () => void; onDone: () => void }) {
+function AddSchool({ operatorEmail, products, onClose, onDone }: {
+  operatorEmail: string; products: Product[]; onClose: () => void; onDone: () => void;
+}) {
   const [f, setF] = useState({ school_key: "", name: "", contact_person: "", contact_email: "", app_url: "" });
+  const [productKey, setProductKey] = useState(() => products[0]?.slug || "bucket");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [copied, setCopied] = useState(false);
   const up = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  const cleanKey = f.school_key.trim().toLowerCase();
+  const registryUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const registryAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const snippet = `NEXT_PUBLIC_REGISTRY_URL=${registryUrl}\nNEXT_PUBLIC_REGISTRY_ANON_KEY=${registryAnonKey}\nNEXT_PUBLIC_SCHOOL_KEY=${cleanKey}`;
 
   async function save() {
     setErr(null);
-    if (!f.school_key.trim() || !f.name.trim()) { setErr("Key and name are required."); return; }
+    if (!cleanKey || !f.name.trim()) { setErr("Key and name are required."); return; }
     setBusy(true);
     const { data, error } = await supabase.from("schools").insert({
-      school_key: f.school_key.trim().toLowerCase(),
+      school_key: cleanKey,
       name: f.name.trim(),
       contact_person: f.contact_person.trim() || null,
       contact_email: f.contact_email.trim() || null,
       app_url: f.app_url.trim() || null,
+      product_key: productKey,
     }).select().single();
     if (error) { setBusy(false); setErr(error.message.includes("duplicate") ? "That school key already exists." : error.message); return; }
     await supabase.from("activity_log").insert({
-      school_id: (data as any).id, school_key: f.school_key.trim().toLowerCase(),
-      event: "registered", detail: "School registered on SUIBING Bucket", by_email: operatorEmail,
+      school_id: (data as any).id, school_key: cleanKey,
+      event: "registered", detail: `Client registered on ${productNameFor(products, productKey)}`, by_email: operatorEmail,
     });
     setBusy(false);
-    onDone();
+    setCreated(true);
+    onDone(); // refresh the parent's list in the background — this dialog stays open to show the snippet
+  }
+
+  function copySnippet() {
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  if (created) {
+    return (
+      <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="modal card" onClick={(e) => e.stopPropagation()}>
+          <div className="mh"><h3>Client added ✓</h3><button className="x" onClick={onClose}>✕</button></div>
+          <p className="hint">
+            Drop <code>registryCheck.ts</code> + <code>LockScreen.tsx</code> (from this project's
+            <code> school-integration/</code> folder) into <strong>{f.name}</strong>'s own app, then set
+            these three environment variables on its deployment:
+          </p>
+          <pre className="snippet">{snippet}</pre>
+          <button className="btn ghost small" type="button" onClick={copySnippet}>{copied ? "Copied ✓" : "Copy"}</button>
+          {productKey !== "bucket" && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              This client is on <strong>{productNameFor(products, productKey)}</strong>, not Bucket — call{" "}
+              <code>reportMetrics({"{"} ...whatever counts for this product {"}"})</code> instead of{" "}
+              <code>reportCounts()</code> once it's wired in.
+            </p>
+          )}
+          <button className="btn" type="button" onClick={onClose} style={{ width: "100%", marginTop: 16 }}>Done</button>
+          <style jsx>{`
+            .overlay { position: fixed; inset: 0; background: rgba(20,28,45,0.4); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 60; }
+            .modal { width: 100%; max-width: 480px; padding: 24px; }
+            .mh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+            h3 { font-size: 18px; font-weight: 700; }
+            .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; }
+            .hint { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 12px; }
+            .hint code { background: var(--paper-2); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+            .snippet { background: var(--navy-soft); color: var(--navy); border-radius: var(--radius-sm); padding: 14px; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; margin-bottom: 10px; }
+            .btn.small { padding: 7px 12px; font-size: 12px; }
+          `}</style>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
-        <div className="mh"><h3>Add school</h3><button className="x" onClick={onClose}>✕</button></div>
-        <label>School key (short, unique, e.g. "assalam")</label>
+        <div className="mh"><h3>Add client</h3><button className="x" onClick={onClose}>✕</button></div>
+        <label>School / client key (short, unique, e.g. "assalam")</label>
         <input value={f.school_key} onChange={(e) => up("school_key", e.target.value)} />
-        <label>School name</label>
+        <label>Name</label>
         <input value={f.name} onChange={(e) => up("name", e.target.value)} />
+        <label>Product</label>
+        {products.length > 0 ? (
+          <select value={productKey} onChange={(e) => setProductKey(e.target.value)}>
+            {products.map((p) => <option key={p.slug} value={p.slug}>{p.icon_emoji} {p.name}</option>)}
+          </select>
+        ) : (
+          <input value={productKey} onChange={(e) => setProductKey(e.target.value)} placeholder="e.g. bucket" />
+        )}
         <div className="two">
           <div><label>Contact person</label><input value={f.contact_person} onChange={(e) => up("contact_person", e.target.value)} /></div>
           <div><label>Contact email</label><input value={f.contact_email} onChange={(e) => up("contact_email", e.target.value)} /></div>
@@ -1610,7 +1731,7 @@ function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; 
         {err && <div className="err">{err}</div>}
         <div className="mf">
           <button className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn" onClick={save} disabled={busy}>{busy ? "Saving…" : "Add school"}</button>
+          <button className="btn" onClick={save} disabled={busy}>{busy ? "Saving…" : "Add client"}</button>
         </div>
         <style jsx>{`
           .overlay { position: fixed; inset: 0; background: rgba(20,28,45,0.4); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 60; }
@@ -1619,8 +1740,8 @@ function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; 
           h3 { font-size: 18px; font-weight: 700; }
           .x { background: none; border: none; font-size: 16px; color: var(--muted); cursor: pointer; }
           label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
-          input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; }
-          input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+          input, select { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; background: #fff; box-sizing: border-box; }
+          input:focus, select:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
           .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
           .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
           .mf { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
@@ -1628,4 +1749,8 @@ function AddSchool({ operatorEmail, onClose, onDone }: { operatorEmail: string; 
       </div>
     </div>
   );
+}
+
+function productNameFor(products: Product[], slug: string) {
+  return products.find((p) => p.slug === slug)?.name ?? slug;
 }
