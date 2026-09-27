@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, isConfigured } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import ProspectsQueue from "@/app/components/ProspectsQueue";
@@ -42,6 +42,9 @@ type School = {
   portal_pin_hash: string | null;
   portal_warning: string | null;
   portal_warned_at: string | null;
+  scheduled_status: "active" | "disabled" | null;
+  scheduled_at: string | null;
+  scheduled_message: string | null;
 };
 
 type Activity = {
@@ -96,8 +99,14 @@ export default function Console() {
   const [mfaCheckDone, setMfaCheckDone] = useState(false);
   const [mfaIncomplete, setMfaIncomplete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const welcomedRef = useRef(false);
 
   const load = useCallback(async () => {
+    // Flip any schools whose scheduled activation/disabling time has
+    // arrived before reading the list, so the console always shows the
+    // enforced status rather than a stale one.
+    await supabase.rpc("apply_due_school_schedules");
     const { data } = await supabase.from("schools").select("*").order("name");
     setSchools((data as School[]) ?? []);
   }, []);
@@ -105,6 +114,36 @@ export default function Console() {
   useEffect(() => {
     if (isOperator) load();
   }, [isOperator, load]);
+
+  // Auto lock/unlock: while the console stays open, keep polling for
+  // scheduled school status changes that have come due, so a school
+  // flips to disabled/active on screen without the operator needing to
+  // touch anything.
+  useEffect(() => {
+    if (!isOperator) return;
+    const id = setInterval(() => { load(); }, 60000);
+    return () => clearInterval(id);
+  }, [isOperator, load]);
+
+  // Voice + visual welcome, once per console load.
+  useEffect(() => {
+    if (!isOperator || welcomedRef.current) return;
+    welcomedRef.current = true;
+    setShowWelcome(true);
+    const hide = setTimeout(() => setShowWelcome(false), 6000);
+    try {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        const utter = new SpeechSynthesisUtterance("Welcome SUIBING");
+        utter.lang = "en-GB";
+        utter.rate = 0.95;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+      }
+    } catch {
+      // Speech is a nice-to-have — never let it block the console.
+    }
+    return () => clearTimeout(hide);
+  }, [isOperator]);
 
   useEffect(() => {
     if (!isOperator) return;
@@ -195,7 +234,7 @@ export default function Console() {
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sideBrand">
           <img src="/logo.png" alt="Suibing IT Services" className="logo" />
-          <span className="brandText">SUIBING <em>Bucket</em></span>
+          <span className="brandText">SUIBING <em>Console</em></span>
         </div>
         <nav className="sideNav">
           {NAV_ITEMS.map((item) => (
@@ -238,6 +277,13 @@ export default function Console() {
           <span className="topBarTitle">{NAV_ITEMS.find((n) => n.key === tab)?.label}</span>
           <NotificationBell schoolNames={schoolNameMap} />
         </div>
+
+        {showWelcome && (
+          <div className="welcomeBanner">
+            👋 Welcome, SUIBING
+            <button className="bannerClose" style={{ color: "var(--green)" }} onClick={() => setShowWelcome(false)}>✕</button>
+          </div>
+        )}
 
         {mfaCheckDone && mfaIncomplete && (
           <div className="mfaBanner">
@@ -283,6 +329,14 @@ export default function Console() {
                         </td>
                         <td data-label="Status">
                           <span className={`badge ${s.status}`}>{s.status}</span>
+                          {s.scheduled_at && (
+                            <span
+                              className="badge scheduled"
+                              title={`Will become ${s.scheduled_status} at ${new Date(s.scheduled_at).toLocaleString("en-GB")}`}
+                            >
+                              ⏱ {s.scheduled_status} {new Date(s.scheduled_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                            </span>
+                          )}
                         </td>
                         <td className="r tab-nums" data-label="Students">{s.students_count}</td>
                         <td className="r tab-nums" data-label="Records">{s.records_count}</td>
@@ -381,6 +435,7 @@ export default function Console() {
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 
         .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+        .welcomeBanner { position: relative; background: var(--green-soft); color: var(--green); border-radius: 10px; padding: 12px 40px 12px 14px; font-size: 13.5px; font-weight: 600; margin-bottom: 16px; }
         .mfaBanner { position: relative; background: #FBF0DC; color: #92650f; border-radius: 10px; padding: 12px 40px 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
         .bannerLink { background: none; border: none; color: #92650f; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
         .bannerClose { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #92650f; cursor: pointer; font-size: 13px; }
@@ -398,6 +453,7 @@ export default function Console() {
         .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
         .badge.active { background: var(--green-soft); color: var(--green); }
         .badge.disabled { background: var(--red-soft); color: var(--red); }
+        .badge.scheduled { background: var(--navy-soft); color: var(--navy); margin-left: 6px; text-transform: none; }
         .overdue { color: var(--red); font-weight: 600; }
         .mini { border: 1px solid var(--line-strong); background: #fff; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 6px; color: var(--ink-2); }
         .mini.danger { color: var(--red); border-color: var(--red); }
@@ -660,6 +716,8 @@ function SchoolDrawer({ school, operatorEmail, onClose, onChanged }: {
         {school.app_url && <a className="url" href={school.app_url} target="_blank" rel="noreferrer">{school.app_url}</a>}
 
         <PortalAccessBox school={school} operatorEmail={operatorEmail} onChanged={onChanged} />
+
+        <ScheduleStatusBox school={school} operatorEmail={operatorEmail} onChanged={onChanged} />
 
         <div className="pay card">
           <h4>Record a payment (manual)</h4>
@@ -957,6 +1015,143 @@ function PortalAccessBox({ school, operatorEmail, onChanged }: {
         .inlineForm input, .inlineForm textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
         .inlineForm textarea { resize: vertical; }
         .row2 { display: flex; gap: 10px; margin-top: 12px; }
+        .row2 .btn { flex: 1; }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Scheduled status change (auto disable/enable) ----------
+function ScheduleStatusBox({ school, operatorEmail, onChanged }: {
+  school: School; operatorEmail: string; onChanged: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<"disabled" | "active">(school.status === "active" ? "disabled" : "active");
+  const [atLocal, setAtLocal] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  // Mirrors the school's schedule locally so the box reflects a save/
+  // cancel immediately, the same pattern PortalAccessBox already uses
+  // (the parent's onChanged() refreshes the outer list, but the drawer's
+  // own `school` prop only catches up next time it is reopened).
+  const [scheduled, setScheduled] = useState<{ status: "active" | "disabled"; at: string; message: string | null } | null>(
+    school.scheduled_at && school.scheduled_status
+      ? { status: school.scheduled_status, at: school.scheduled_at, message: school.scheduled_message }
+      : null
+  );
+
+  async function save() {
+    setErr(null); setMsg(null);
+    if (!atLocal) { setErr("Choose a date and time."); return; }
+    const at = new Date(atLocal);
+    if (isNaN(at.getTime())) { setErr("Invalid date and time."); return; }
+    if (targetStatus === "disabled" && !message.trim()) {
+      setErr("A message is required so the school understands why access will be paused.");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.rpc("schedule_school_status", {
+      p_school_id: school.id, p_status: targetStatus, p_at: at.toISOString(),
+      p_message: message.trim() || null, p_by: operatorEmail,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setScheduled({ status: targetStatus, at: at.toISOString(), message: message.trim() || null });
+    setMsg(`Scheduled — will become ${targetStatus} at the chosen time.`);
+    setShowForm(false); setAtLocal(""); setMessage("");
+    onChanged();
+  }
+
+  async function cancelSchedule() {
+    if (!confirm("Cancel this scheduled change?")) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("clear_school_schedule", { p_school_id: school.id, p_by: operatorEmail });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setScheduled(null);
+    setMsg("Scheduled change cancelled.");
+    onChanged();
+  }
+
+  return (
+    <div className="schedBox card">
+      <h4>Scheduled status change</h4>
+      <p className="hint">
+        Set a future date and time for this school to automatically become active or disabled,
+        with a message the school will see. Applied the moment anything next checks the school's
+        status (its own app, its portal, or this console) — no need to come back and flip it by hand.
+      </p>
+
+      {scheduled && (
+        <div className="pendingCard">
+          <div className="pendingTop">
+            <span className={`badge ${scheduled.status}`}>{scheduled.status}</span>
+            <span className="pendingAt">
+              at {new Date(scheduled.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+          {scheduled.message && <p className="pendingMsg">"{scheduled.message}"</p>}
+          <button className="btn ghost small" type="button" onClick={cancelSchedule} disabled={busy}>Cancel schedule</button>
+        </div>
+      )}
+
+      {msg && <div className="msg">{msg}</div>}
+      {err && <div className="err">{err}</div>}
+
+      {showForm ? (
+        <div className="inlineForm">
+          <label>Change status to</label>
+          <div className="toggleRow">
+            <button type="button" className={targetStatus === "disabled" ? "seg on danger" : "seg"} onClick={() => setTargetStatus("disabled")}>Disabled</button>
+            <button type="button" className={targetStatus === "active" ? "seg on ok" : "seg"} onClick={() => setTargetStatus("active")}>Active</button>
+          </div>
+          <label>Date &amp; time</label>
+          <input type="datetime-local" value={atLocal} onChange={(e) => setAtLocal(e.target.value)} />
+          <label>{targetStatus === "disabled" ? "Reason (shown to the school, required)" : "Message (shown to the school, optional)"}</label>
+          <textarea
+            rows={3}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={targetStatus === "disabled" ? "e.g. Subscription period ended." : "e.g. Welcome back — your access has been restored."}
+          />
+          <div className="row2">
+            <button className="btn ghost" type="button" onClick={() => setShowForm(false)}>Cancel</button>
+            <button className="btn ok" type="button" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save schedule"}</button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn ghost small" type="button" onClick={() => setShowForm(true)}>
+          {scheduled ? "Replace schedule" : "Schedule a status change"}
+        </button>
+      )}
+
+      <style jsx>{`
+        .schedBox { padding: 18px; margin-bottom: 18px; }
+        h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+        .hint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+        .pendingCard { background: var(--navy-soft); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; }
+        .pendingTop { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+        .badge.active { background: var(--green-soft); color: var(--green); }
+        .badge.disabled { background: var(--red-soft); color: var(--red); }
+        .pendingAt { font-size: 12.5px; color: var(--navy); font-weight: 600; }
+        .pendingMsg { font-size: 13px; color: var(--ink-2); font-style: italic; margin: 6px 0 10px; }
+        .msg { font-size: 13px; color: var(--green); margin-bottom: 10px; line-height: 1.4; }
+        .err { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 10px; }
+        .btn.small { padding: 7px 12px; font-size: 12px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
+        .inlineForm label:first-child { margin-top: 0; }
+        input, textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13.5px; font-family: inherit; background: #fff; box-sizing: border-box; }
+        input:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+        textarea { resize: vertical; }
+        .toggleRow { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 4px; }
+        .seg { flex: 1; background: #fff; border: none; padding: 9px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+        .seg.on.danger { background: var(--red); color: #fff; }
+        .seg.on.ok { background: var(--green); color: #fff; }
+        .row2 { display: flex; gap: 10px; margin-top: 14px; }
         .row2 .btn { flex: 1; }
       `}</style>
     </div>
