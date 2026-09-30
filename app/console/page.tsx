@@ -11,6 +11,7 @@ import PaymentsQueue from "@/app/components/PaymentsQueue";
 import ProductsManager from "@/app/components/ProductsManager";
 import TestimonialsManager from "@/app/components/TestimonialsManager";
 import MfaSettings from "@/app/components/MfaSettings";
+import { VoiceLockGate, VoiceLockSettings, VOICE_HASH_KEY } from "@/app/components/VoiceLock";
 import CompanySettings from "@/app/components/CompanySettings";
 import FactoryReset from "@/app/components/FactoryReset";
 import ComplaintsQueue from "@/app/components/ComplaintsQueue";
@@ -83,7 +84,7 @@ export default function Console() {
   const [selected, setSelected] = useState<School | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | "broadcast" | "operators" | null>(null);
+  const [accountModal, setAccountModal] = useState<"password" | "mfa" | "settings" | "reset" | "broadcast" | "operators" | "voice" | null>(null);
   const [backingUp, setBackingUp] = useState(false);
 
   async function downloadFullBackup() {
@@ -112,6 +113,8 @@ export default function Console() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const welcomedRef = useRef(false);
+  const [voiceLockConfigured, setVoiceLockConfigured] = useState(false);
+  const [voiceUnlockedThisLoad, setVoiceUnlockedThisLoad] = useState(false);
 
   const load = useCallback(async () => {
     // Flip any schools whose scheduled activation/disabling time has
@@ -126,6 +129,11 @@ export default function Console() {
     if (!isOperator) return;
     supabase.from("products").select("slug,name,icon_emoji").order("display_order")
       .then(({ data }) => setProducts((data as Product[]) ?? []));
+  }, [isOperator]);
+
+  useEffect(() => {
+    if (!isOperator) return;
+    setVoiceLockConfigured(typeof window !== "undefined" && !!localStorage.getItem(VOICE_HASH_KEY));
   }, [isOperator]);
 
   useEffect(() => {
@@ -150,7 +158,7 @@ export default function Console() {
     const hide = setTimeout(() => setShowWelcome(false), 6000);
     try {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        const utter = new SpeechSynthesisUtterance("Welcome SUIBING");
+        const utter = new SpeechSynthesisUtterance("Suibing, you are welcome to the console");
         utter.lang = "en-GB";
         utter.rate = 0.95;
         window.speechSynthesis.cancel();
@@ -205,6 +213,19 @@ export default function Console() {
   if (!isConfigured) return <Center>Console not configured. Set Supabase environment variables.</Center>;
   if (!email) return <Redirect />;
   if (!isOperator) return <Center>This account is not an operator. <button className="btn ghost" onClick={signOut} style={{ marginLeft: 12 }}>Sign out</button></Center>;
+
+  if (voiceLockConfigured && !voiceUnlockedThisLoad) {
+    return (
+      <VoiceLockGate
+        onUnlock={() => setVoiceUnlockedThisLoad(true)}
+        onDisable={() => {
+          localStorage.removeItem(VOICE_HASH_KEY);
+          setVoiceLockConfigured(false);
+          setVoiceUnlockedThisLoad(true);
+        }}
+      />
+    );
+  }
 
   const active = schools.filter((s) => s.status === "active").length;
   const overdue = schools.filter((s) => s.paid_until && new Date(s.paid_until) < new Date()).length;
@@ -273,6 +294,7 @@ export default function Console() {
             <div className="accountEmail">{email}</div>
             <button className="sideLink" onClick={() => { setAccountModal("password"); setSidebarOpen(false); }}>Set password</button>
             <button className="sideLink" onClick={() => { setAccountModal("mfa"); setSidebarOpen(false); }}>Authenticator</button>
+            <button className="sideLink" onClick={() => { setAccountModal("voice"); setSidebarOpen(false); }}>Voice unlock (fun)</button>
             <button className="sideLink" onClick={() => { setAccountModal("settings"); setSidebarOpen(false); }}>Company settings</button>
             <button className="sideLink" onClick={() => { setAccountModal("broadcast"); setSidebarOpen(false); }}>Broadcast announcement</button>
             <button className="sideLink" onClick={() => { setAccountModal("operators"); setSidebarOpen(false); }}>Operators</button>
@@ -298,7 +320,7 @@ export default function Console() {
 
         {showWelcome && (
           <div className="welcomeBanner">
-            👋 Welcome, SUIBING
+            👋 SUIBING, you are welcome to the console
             <button className="bannerClose" style={{ color: "var(--green)" }} onClick={() => setShowWelcome(false)}>✕</button>
           </div>
         )}
@@ -400,6 +422,15 @@ export default function Console() {
 
       {accountModal === "password" && <SetPasswordModal onClose={() => setAccountModal(null)} />}
       {accountModal === "mfa" && <MfaSettings onClose={() => setAccountModal(null)} />}
+      {accountModal === "voice" && (
+        <VoiceLockSettings
+          onClose={() => {
+            setAccountModal(null);
+            setVoiceLockConfigured(typeof window !== "undefined" && !!localStorage.getItem(VOICE_HASH_KEY));
+            setVoiceUnlockedThisLoad(true); // don't immediately re-gate mid-session right after setting it up
+          }}
+        />
+      )}
       {accountModal === "settings" && <CompanySettings onClose={() => setAccountModal(null)} />}
       {accountModal === "broadcast" && <BroadcastAdmin onClose={() => setAccountModal(null)} />}
       {accountModal === "operators" && email && <OperatorsAdmin currentEmail={email} onClose={() => setAccountModal(null)} />}
